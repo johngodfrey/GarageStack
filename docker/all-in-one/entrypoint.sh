@@ -52,12 +52,13 @@ ln -sfn /data/dataprotection /root/.aspnet/DataProtection-Keys
 # Generate Mosquitto password and ACL files from SAIC credentials.
 mosquitto_passwd -b -c /etc/mosquitto/conf.d/passwd "${SAIC_USER}" "${SAIC_PASSWORD}"
 printf 'user %s\ntopic readwrite #\n' "${SAIC_USER}" > /etc/mosquitto/conf.d/acl
+chown mosquitto:mosquitto /etc/mosquitto/conf.d/passwd /etc/mosquitto/conf.d/acl /data/db/mosquitto
 chmod 600 /etc/mosquitto/conf.d/passwd /etc/mosquitto/conf.d/acl
 
 # ── PostgreSQL initialisation ──────────────────────────────────────────────────
 if [ ! -f "$PGDATA/PG_VERSION" ]; then
     echo "[garagestack] Initialising PostgreSQL data directory..."
-    chown -R postgres:postgres /data/db
+    chown -R postgres:postgres /data/db/postgres
     gosu postgres /usr/lib/postgresql/18/bin/initdb \
         -D "$PGDATA" --auth-host=md5 --auth-local=trust -E UTF8 --locale=C
 
@@ -78,7 +79,8 @@ EOSQL
     echo "[garagestack] PostgreSQL initialised."
 fi
 
-chown -R postgres:postgres /data/db
+chown -R postgres:postgres /data/db/postgres
+chown -R mosquitto:mosquitto /data/db/mosquitto
 
 echo "[garagestack] Starting all services via supervisord..."
 exec /usr/bin/supervisord -n -c /etc/supervisor/supervisord.conf
