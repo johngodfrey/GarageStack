@@ -1,0 +1,21 @@
+name: Dependency submission
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  snapshot:
+    name: Dependency snapshot
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Submit dependencies
+        uses: advanced-security/component-detection-dependency-submission-action@v0.1.1

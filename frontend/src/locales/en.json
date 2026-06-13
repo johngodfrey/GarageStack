@@ -45,7 +45,7 @@
       "distanceInRange": "Distance in period",
       "monthlyMileage": "Monthly mileage",
       "avgTripLength": "Avg trip length",
-      "climateUsage": "Climate usage",
+      "climateUsage": "Remote preconditioning",
       "commutePattern": "Peak drive time",
       "batteryVoltageTrend": "12V trend",
       "parkingLocations": "Parking locations",
@@ -54,16 +54,24 @@
     "cardDesc": {
       "distanceInRange": "Total distance across all trips in the selected time window.",
       "avgTripLength": "Average distance per trip in the selected period.",
-      "climateUsage": "Percentage of recorded snapshots during which climate control was active.",
+      "climateUsage": "Percentage of recorded snapshots during which remote climate preconditioning was active. Does not reflect in-car A/C usage while driving.",
       "commutePattern": "The hour of day with the most trip starts in the selected period - your most common time to drive.",
       "batteryVoltageTrend": "Change in average 12V battery voltage from the start to the end of the selected period. Shows current voltage when less than two days of data are available.",
       "parkingLocations": "Number of distinct parking spots used across all trips in the selected period, based on rounded GPS coordinates.",
       "electricShare": "Estimated share of today's driving on electric power, derived from km since last charge versus total km today. Only meaningful for PHEV, where the battery can be charged from the grid."
     },
+    "chartDesc": {
+      "evChart": "Daily average EV battery state-of-charge over the selected period.",
+      "tyreChart": "Daily average tyre pressure per wheel over the selected period. Typical passenger-car range is 2.0 – 3.0 bar.",
+      "hybridSocChart": "Daily average EV battery and fuel level over the selected period. Lets you compare how both energy sources change together.",
+      "dailyKwhChart": "Estimated kWh consumed from the EV battery per day. Past days show the cumulative peak for that day; today shows only the net increase since midnight, or since the last counter reset."
+    },
     "hybridSocChart": "EV & Fuel Levels",
     "dailyKwhChart": "Daily Electric Usage (kWh)"
   },
   "vehicle": {
+    "wentOnline": "Vehicle is online",
+    "wentOffline": "Vehicle went offline",
     "fuel": "Fuel",
     "range": "Range",
     "odometer": "Odometer",
@@ -175,6 +183,7 @@
     "unlock": "Unlock",
     "temperature": "AC temperature",
     "rearDefroster": "Rear defroster",
+    "steeringWheelHeating": "Steering wheel heating",
     "findMyCar": "Find my car",
     "findMyCarActivate": "Activate",
     "findMyCarStop": "Stop",
@@ -192,8 +201,37 @@
     "last7days": "Last 7 days",
     "last30days": "Last 30 days",
     "last90days": "Last 90 days",
+    "dateRangeDesc": "Filters trips shown on the map and in the list",
     "heatmap": "Heatmap",
-    "findCar": "Find car"
+    "heatmapDesc": "Shows a density overlay of all recorded routes",
+    "routeOutline": "Route outline",
+    "routeOutlineDesc": "Adds a dark border to route lines for better contrast",
+    "speedOverlay": "Speed overlay",
+    "speedOverlayDesc": "Visible when a single trip is selected",
+    "chargingStations": "Charging stations",
+    "chargingStationsDesc": "Shows EV charging points near your current position",
+    "chargingPower": "Power (kW)",
+    "chargingPowerDesc": "Filter stations by their available charging power",
+    "chargingMinPower": "Min. power",
+    "chargingMaxPower": "Max. power",
+    "chargingPowerAny": "Any",
+    "chargingStall": "stall",
+    "chargingStalls": "stalls",
+    "findCar": "Find car",
+    "points": "pts"
+  },
+  "pwa": {
+    "install": {
+      "title": "Install GarageStack",
+      "description": "Add GarageStack to your home screen for the best experience.",
+      "iconAlt": "GarageStack app icon",
+      "featureOffline": "Fast access, even offline",
+      "featureNotifications": "Push notifications for vehicle events",
+      "featureNative": "Full-screen native app feel",
+      "install": "Install app",
+      "notNow": "Not now",
+      "neverShow": "Don't show this again"
+    }
   },
   "push": {
     "enable": "Enable notifications",
@@ -304,13 +342,20 @@
     "open": "Open",
     "closed": "Closed",
     "cancel": "Cancel",
+    "close": "Close",
+    "apply": "Apply",
     "confirm": "Confirm",
     "filters": "Filters",
     "online": "Online",
     "offline": "Offline",
     "min": "min",
     "fetched": "Fetched",
-    "recorded": "Recorded"
+    "recorded": "Recorded",
+    "firstPage": "First page",
+    "prevPage": "Previous page",
+    "nextPage": "Next page",
+    "lastPage": "Last page",
+    "pageOf": "Page {n} of {total}"
   },
   "demo": {
     "banner": "Demo mode - displaying sample data only",

@@ -150,6 +150,12 @@ export interface AppSettings {
   locale: Locale
   filterDays: number
   carColorScheme: string
+  routeOutlineEnabled: boolean
+  heatmapEnabled: boolean
+  speedOverlayEnabled: boolean
+  chargingStationsEnabled: boolean
+  chargingMinPowerKw: number
+  chargingMaxPowerKw: number
 }
 
 function osPreferredTheme(): Theme {
@@ -202,6 +208,12 @@ const defaults: AppSettings = {
   locale: browserLocale(),
   filterDays: 7,
   carColorScheme: 'orange',
+  routeOutlineEnabled: false,
+  heatmapEnabled: true,
+  speedOverlayEnabled: false,
+  chargingStationsEnabled: false,
+  chargingMinPowerKw: 0,
+  chargingMaxPowerKw: 0,
 }
 
 function migrateCards(raw: { id: string; visible: boolean }[]): CardConfig[] {
@@ -300,6 +312,14 @@ function loadFromKey(key: string): AppSettings {
           locale: parsed.locale ?? defaults.locale,
           filterDays: parsed.filterDays ?? defaults.filterDays,
           carColorScheme: parsed.carColorScheme ?? defaults.carColorScheme,
+          routeOutlineEnabled: parsed.routeOutlineEnabled === true,
+          heatmapEnabled: parsed.heatmapEnabled !== false,
+          speedOverlayEnabled: parsed.speedOverlayEnabled === true,
+          chargingStationsEnabled: parsed.chargingStationsEnabled === true,
+          chargingMinPowerKw:
+            typeof parsed.chargingMinPowerKw === 'number' ? parsed.chargingMinPowerKw : 0,
+          chargingMaxPowerKw:
+            typeof parsed.chargingMaxPowerKw === 'number' ? parsed.chargingMaxPowerKw : 0,
         }
       }
 
@@ -315,6 +335,14 @@ function loadFromKey(key: string): AppSettings {
           locale: parsed.locale ?? defaults.locale,
           filterDays: parsed.filterDays ?? defaults.filterDays,
           carColorScheme: parsed.carColorScheme ?? defaults.carColorScheme,
+          routeOutlineEnabled: parsed.routeOutlineEnabled === true,
+          heatmapEnabled: parsed.heatmapEnabled !== false,
+          speedOverlayEnabled: parsed.speedOverlayEnabled === true,
+          chargingStationsEnabled: parsed.chargingStationsEnabled === true,
+          chargingMinPowerKw:
+            typeof parsed.chargingMinPowerKw === 'number' ? parsed.chargingMinPowerKw : 0,
+          chargingMaxPowerKw:
+            typeof parsed.chargingMaxPowerKw === 'number' ? parsed.chargingMaxPowerKw : 0,
         }
       }
     }
@@ -352,6 +380,12 @@ export const useSettingsStore = defineStore('settings', () => {
   const showTyreDiagram = ref<boolean>(loaded.showTyreDiagram)
   const showCardInfoIcons = ref<boolean>(loaded.showCardInfoIcons)
   const carColorScheme = ref<string>(loaded.carColorScheme)
+  const routeOutlineEnabled = ref<boolean>(loaded.routeOutlineEnabled)
+  const heatmapEnabled = ref<boolean>(loaded.heatmapEnabled)
+  const speedOverlayEnabled = ref<boolean>(loaded.speedOverlayEnabled)
+  const chargingStationsEnabled = ref<boolean>(loaded.chargingStationsEnabled)
+  const chargingMinPowerKw = ref<number>(loaded.chargingMinPowerKw)
+  const chargingMaxPowerKw = ref<number>(loaded.chargingMaxPowerKw)
 
   document.documentElement.dataset.theme = theme.value
   applyCarColors(carColorScheme.value)
@@ -370,6 +404,12 @@ export const useSettingsStore = defineStore('settings', () => {
         locale: locale.value,
         filterDays: filterDays.value,
         carColorScheme: carColorScheme.value,
+        routeOutlineEnabled: routeOutlineEnabled.value,
+        heatmapEnabled: heatmapEnabled.value,
+        speedOverlayEnabled: speedOverlayEnabled.value,
+        chargingStationsEnabled: chargingStationsEnabled.value,
+        chargingMinPowerKw: chargingMinPowerKw.value,
+        chargingMaxPowerKw: chargingMaxPowerKw.value,
       }),
     )
   }
@@ -382,6 +422,12 @@ export const useSettingsStore = defineStore('settings', () => {
   watch(vehicleTypeOverride, save)
   watch(locale, save)
   watch(filterDays, save)
+  watch(routeOutlineEnabled, save)
+  watch(heatmapEnabled, save)
+  watch(speedOverlayEnabled, save)
+  watch(chargingStationsEnabled, save)
+  watch(chargingMinPowerKw, save)
+  watch(chargingMaxPowerKw, save)
   watch(theme, (val) => {
     document.documentElement.dataset.theme = val
     save()
@@ -406,6 +452,12 @@ export const useSettingsStore = defineStore('settings', () => {
     locale,
     filterDays,
     carColorScheme,
+    routeOutlineEnabled,
+    heatmapEnabled,
+    speedOverlayEnabled,
+    chargingStationsEnabled,
+    chargingMinPowerKw,
+    chargingMaxPowerKw,
     resetCards,
   }
 })

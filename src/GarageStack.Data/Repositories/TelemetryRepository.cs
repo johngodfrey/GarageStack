@@ -32,7 +32,7 @@ public class TelemetryRepository(AppDbContext db) : ITelemetryRepository
              s.ChargerConnected != null || s.HvBatteryActive != null ||
              s.LightsMainBeam != null || s.LightsDippedBeam != null || s.LightsSide != null ||
              s.HeatedSeatFrontLeft != null || s.HeatedSeatFrontRight != null ||
-             s.RearWindowDefroster != null ||
+             s.RearWindowDefroster != null || s.SteeringWheelHeating != null ||
              s.IsAvailable != null || s.LastVehicleStateAt != null || s.LastChargeStateAt != null ||
              s.CurrentJourneyDistance != null ||
              s.ChargingType != null || s.ChargingCableLock != null || s.RemainingChargingTime != null ||
@@ -60,6 +60,7 @@ public class TelemetryRepository(AppDbContext db) : ITelemetryRepository
     {
         db.TelemetrySnapshots.Add(snapshot);
         await db.SaveChangesAsync(ct);
+        await NotifyUpdatedAsync(snapshot.VehicleId, ct);
         return snapshot.Id;
     }
 
@@ -70,6 +71,7 @@ public class TelemetryRepository(AppDbContext db) : ITelemetryRepository
         {
             db.TelemetrySnapshots.Add(patch);
             await db.SaveChangesAsync(ct);
+            await NotifyUpdatedAsync(patch.VehicleId, ct);
             return;
         }
 
@@ -122,6 +124,7 @@ public class TelemetryRepository(AppDbContext db) : ITelemetryRepository
         if (patch.HeatedSeatFrontLeft != null) existing.HeatedSeatFrontLeft = patch.HeatedSeatFrontLeft;
         if (patch.HeatedSeatFrontRight != null) existing.HeatedSeatFrontRight = patch.HeatedSeatFrontRight;
         if (patch.RearWindowDefroster != null) existing.RearWindowDefroster = patch.RearWindowDefroster;
+        if (patch.SteeringWheelHeating != null) existing.SteeringWheelHeating = patch.SteeringWheelHeating;
         if (patch.IsAvailable != null) existing.IsAvailable = patch.IsAvailable;
         if (patch.LastVehicleStateAt != null) existing.LastVehicleStateAt = patch.LastVehicleStateAt;
         if (patch.LastChargeStateAt != null) existing.LastChargeStateAt = patch.LastChargeStateAt;
@@ -147,6 +150,17 @@ public class TelemetryRepository(AppDbContext db) : ITelemetryRepository
         if (patch.BatteryHeatingScheduleStartTime != null) existing.BatteryHeatingScheduleStartTime = patch.BatteryHeatingScheduleStartTime;
 
         await db.SaveChangesAsync(ct);
+        await NotifyUpdatedAsync(existing.VehicleId, ct);
+    }
+
+    private async Task NotifyUpdatedAsync(int vehicleId, CancellationToken ct)
+    {
+        if (!db.Database.IsRelational()) return;
+        try
+        {
+            await db.Database.ExecuteSqlAsync($"SELECT pg_notify('telemetry_updated', {vehicleId.ToString()})", ct);
+        }
+        catch { }
     }
 
     public Task<TelemetrySnapshot?> GetLatestAsync(int vehicleId, CancellationToken ct = default) =>
@@ -223,6 +237,7 @@ public class TelemetryRepository(AppDbContext db) : ITelemetryRepository
             merged.HeatedSeatFrontLeft ??= row.HeatedSeatFrontLeft;
             merged.HeatedSeatFrontRight ??= row.HeatedSeatFrontRight;
             merged.RearWindowDefroster ??= row.RearWindowDefroster;
+            merged.SteeringWheelHeating ??= row.SteeringWheelHeating;
             merged.IsAvailable ??= row.IsAvailable;
             merged.LastVehicleStateAt ??= row.LastVehicleStateAt;
             merged.LastChargeStateAt ??= row.LastChargeStateAt;
@@ -492,5 +507,24 @@ public class TelemetryRepository(AppDbContext db) : ITelemetryRepository
                 Math.Cos(lat1 * Math.PI / 180) * Math.Cos(lat2 * Math.PI / 180) *
                 Math.Sin(dLon / 2) * Math.Sin(dLon / 2);
         return R * 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
+    }
+
+    public async Task<VehicleAggregateStats> GetAggregateStatsAsync(int vehicleId, DateTime from, DateTime to, CancellationToken ct = default)
+    {
+        var climateKnown = await db.TelemetrySnapshots
+            .Where(s => s.VehicleId == vehicleId && s.RecordedAt >= from && s.RecordedAt <= to && s.ClimateOn != null)
+            .CountAsync(ct);
+
+        var climateOn = climateKnown > 0
+            ? await db.TelemetrySnapshots
+                .Where(s => s.VehicleId == vehicleId && s.RecordedAt >= from && s.RecordedAt <= to && s.ClimateOn == true)
+                .CountAsync(ct)
+            : 0;
+
+        return new VehicleAggregateStats(
+            ClimateUsagePct: climateKnown > 0 ? (int)Math.Round((double)climateOn / climateKnown * 100) : null,
+            ClimateOnSnapshots: climateOn,
+            TotalClimateSnapshots: climateKnown
+        );
     }
 }

@@ -45,7 +45,7 @@
       "distanceInRange": "Afstand in periode",
       "monthlyMileage": "Maandkilometrage",
       "avgTripLength": "Gem. ritlengte",
-      "climateUsage": "Klimaatgebruik",
+      "climateUsage": "Voorconditionering",
       "commutePattern": "Piek rijtijd",
       "batteryVoltageTrend": "12V-trend",
       "parkingLocations": "Parkeerlocaties",
@@ -54,16 +54,24 @@
     "cardDesc": {
       "distanceInRange": "Totale afstand over alle ritten in de geselecteerde periode.",
       "avgTripLength": "Gemiddelde afstand per rit in de geselecteerde periode.",
-      "climateUsage": "Percentage van geregistreerde momenten waarop de klimaatbeheersing actief was.",
+      "climateUsage": "Percentage van geregistreerde momenten waarop de klimaatvoorconditionering actief was. Geeft geen weergave van airco-gebruik tijdens het rijden.",
       "commutePattern": "Het uur van de dag met de meeste ritstarts in de geselecteerde periode - jouw meest voorkomende rijtijd.",
       "batteryVoltageTrend": "Verandering in gemiddelde 12V-accuspanning van het begin tot het einde van de geselecteerde periode. Toont de huidige spanning als er minder dan twee dagen aan data beschikbaar is.",
       "parkingLocations": "Aantal unieke parkeerplaatsen gebruikt over alle ritten in de geselecteerde periode, gebaseerd op afgeronde GPS-coordinaten.",
       "electricShare": "Geschat aandeel van de ritten vandaag op elektrisch vermogen, afgeleid van km sinds laatste laadbeurt versus totaal km vandaag. Alleen zichtbaar voor HEV en PHEV."
     },
+    "chartDesc": {
+      "evChart": "Dagelijks gemiddeld EV-accuniveau in de geselecteerde periode.",
+      "tyreChart": "Dagelijkse gemiddelde bandenspanning per wiel in de geselecteerde periode. Normaal bereik voor personenwagens is circa 2,0 – 3,0 bar.",
+      "hybridSocChart": "Dagelijks gemiddeld EV-accuniveau en brandstofniveau in de geselecteerde periode. Geeft inzicht in hoe beide energiebronnen zich samen ontwikkelen.",
+      "dailyKwhChart": "Geschat kWh-verbruik uit de EV-accu per dag. Voltooide dagen tonen de cumulatieve piek van die dag; vandaag toont alleen de nettotoename sinds middernacht, of sinds de laatste tellerreset."
+    },
     "hybridSocChart": "EV & Brandstofniveaus",
     "dailyKwhChart": "Dagelijks elektrisch verbruik (kWh)"
   },
   "vehicle": {
+    "wentOnline": "Voertuig is online",
+    "wentOffline": "Voertuig is offline gegaan",
     "fuel": "Brandstof",
     "range": "Bereik",
     "odometer": "Kilometerteller",
@@ -175,6 +183,7 @@
     "unlock": "Ontgrendelen",
     "temperature": "AC temperatuur",
     "rearDefroster": "Achterruitsverwarming",
+    "steeringWheelHeating": "Stuurwielverwarming",
     "findMyCar": "Zoek mijn auto",
     "findMyCarActivate": "Activeren",
     "findMyCarStop": "Stoppen",
@@ -192,8 +201,37 @@
     "last7days": "Afgelopen 7 dagen",
     "last30days": "Afgelopen 30 dagen",
     "last90days": "Afgelopen 90 dagen",
+    "dateRangeDesc": "Filtert de ritten op de kaart en in de lijst",
     "heatmap": "Heatmap",
-    "findCar": "Vind auto"
+    "heatmapDesc": "Toont een dichtheidslaag van alle opgenomen routes",
+    "routeOutline": "Route omlijning",
+    "routeOutlineDesc": "Voegt een donkere rand toe aan routelijnen voor meer contrast",
+    "speedOverlay": "Snelheidsoverlay",
+    "speedOverlayDesc": "Zichtbaar wanneer een enkele rit is geselecteerd",
+    "chargingStations": "Laadstations",
+    "chargingStationsDesc": "Toont EV-laadstations bij je huidige positie",
+    "chargingPower": "Vermogen (kW)",
+    "chargingPowerDesc": "Filter stations op beschikbaar laadvermogen",
+    "chargingMinPower": "Min. vermogen",
+    "chargingMaxPower": "Max. vermogen",
+    "chargingPowerAny": "Alle",
+    "chargingStall": "laadpunt",
+    "chargingStalls": "laadpunten",
+    "findCar": "Vind auto",
+    "points": "ptn"
+  },
+  "pwa": {
+    "install": {
+      "title": "GarageStack installeren",
+      "description": "Voeg GarageStack toe aan je startscherm voor de beste ervaring.",
+      "iconAlt": "GarageStack app-icoon",
+      "featureOffline": "Snelle toegang, ook offline",
+      "featureNotifications": "Pushmeldingen voor voertuigevents",
+      "featureNative": "Volledig scherm, native app-gevoel",
+      "install": "App installeren",
+      "notNow": "Niet nu",
+      "neverShow": "Niet meer tonen"
+    }
   },
   "push": {
     "enable": "Meldingen inschakelen",
@@ -304,13 +342,20 @@
     "open": "Open",
     "closed": "Gesloten",
     "cancel": "Annuleren",
+    "close": "Sluiten",
+    "apply": "Toepassen",
     "confirm": "Bevestigen",
     "filters": "Filters",
     "online": "Online",
     "offline": "Offline",
     "min": "min",
     "fetched": "Opgehaald",
-    "recorded": "Geregistreerd"
+    "recorded": "Geregistreerd",
+    "firstPage": "Eerste pagina",
+    "prevPage": "Vorige pagina",
+    "nextPage": "Volgende pagina",
+    "lastPage": "Laatste pagina",
+    "pageOf": "Pagina {n} van {total}"
   },
   "demo": {
     "banner": "Demo modus - alleen voorbeelddata wordt getoond",

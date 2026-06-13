@@ -5,6 +5,10 @@ on:
     branches: [main]
   push:
     branches: [main]
+  workflow_run:
+    workflows: ["Build and publish Docker images"]
+    types: [completed]
+    branches: [main]
   schedule:
     - cron: '0 7 * * 1'
 
@@ -12,12 +16,15 @@ permissions:
   contents: read
   security-events: write
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   trivy-fs:
     name: Trivy filesystem scan
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
 
       - name: Run Trivy (SARIF output)
         uses: aquasecurity/trivy-action@v0.36.0
@@ -49,7 +56,7 @@ jobs:
   trivy-image:
     name: Trivy image scan (${{ matrix.label }})
     runs-on: ubuntu-latest
-    if: github.event_name != 'pull_request'
+    if: github.event_name != 'pull_request' && (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success')
     permissions:
       contents: read
       security-events: write
