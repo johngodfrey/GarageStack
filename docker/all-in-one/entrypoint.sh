@@ -3,6 +3,7 @@ set -e
 
 # Ensure volume subdirectories exist on a fresh mount
 mkdir -p /data/db/postgres /data/db/mosquitto /data/logs /data/dataprotection
+chown -R postgres:postgres /data/db/postgres /data/logs
 
 PGDATA="/data/db/postgres"
 POSTGRES_DB="${POSTGRES_DB:-garagestack}"
