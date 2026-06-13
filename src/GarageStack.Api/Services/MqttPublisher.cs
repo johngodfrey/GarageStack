@@ -56,7 +56,6 @@ public class MqttPublisher(IConfiguration config, ILogger<MqttPublisher> logger)
         var message = new MqttApplicationMessageBuilder()
             .WithTopic(topic)
             .WithPayload(Encoding.UTF8.GetBytes(payload))
-            .WithQualityOfServiceLevel(MQTTnet.Protocol.MqttQualityOfServiceLevel.AtLeastOnce)
             .WithRetainFlag(false)
             .Build();
 

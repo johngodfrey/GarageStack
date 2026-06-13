@@ -221,11 +221,6 @@ public static class TelemetryMapper
             case "climate/rearWindowDefrosterHeating":
                 snapshot.RearWindowDefroster = asBool;
                 break;
-            case "climate/steeringWheelHeating":
-            case "climate/heatedSteeringWheel":
-            case "climate/steeringWheelHeat":
-                snapshot.SteeringWheelHeating = asBool;
-                break;
 
             // Online / availability
             case "available":

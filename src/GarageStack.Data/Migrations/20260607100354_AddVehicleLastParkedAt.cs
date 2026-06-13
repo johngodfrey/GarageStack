@@ -16,9 +16,6 @@ namespace GarageStack.Data.Migrations
                 table: "Vehicles",
                 type: "timestamp with time zone",
                 nullable: true);
-
-            // IX_TelemetrySnapshots_VehicleId_RecordedAt already exists from InitialCreate;
-            // do not recreate it here or upgrade will fail with a duplicate relation error.
         }
 
         /// <inheritdoc />

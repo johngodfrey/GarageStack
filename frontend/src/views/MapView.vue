@@ -3,19 +3,14 @@ import { onMounted, onUnmounted, computed, ref, shallowRef, watch, nextTick } fr
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { useVehicleStore } from '@/stores/vehicle'
-import type { VehicleType } from '@/stores/vehicle'
 import { useSettingsStore } from '@/stores/settings'
 import { LMap, LTileLayer, LMarker, LPopup } from '@vue-leaflet/vue-leaflet'
+import AppPaginator from '@/components/AppPaginator.vue'
 import FiltersPanel from '@/components/FiltersPanel.vue'
-import Slider from '@vueform/slider'
 import * as LModule from 'leaflet'
 import type { Map as LeafletMap } from 'leaflet'
 import 'leaflet.heat'
-import 'leaflet.markercluster'
-import 'leaflet.markercluster/dist/MarkerCluster.css'
-import '@/assets/map.css'
-import type { Trip, ChargingStation } from '@/services/api'
-import { mapApi } from '@/services/api'
+import type { Trip } from '@/services/api'
 
 // Vite wraps CJS modules in a frozen ESM namespace - `import * as LModule` gives that frozen
 // namespace. leaflet.heat patches the actual mutable CJS export (LModule.default), so we must
@@ -31,77 +26,9 @@ const settingsStore = useSettingsStore()
 
 const vin = computed(() => store.vehicles[0]?.vin ?? null)
 const status = computed(() => store.currentStatus)
-const vehicleType = computed((): VehicleType | 'unknown' => {
-  const override = settingsStore.vehicleTypeOverride
-  if (override !== 'auto') return override as VehicleType
-  return store.detectedVehicleType
-})
-const isHev = computed(() => vehicleType.value === 'hev')
 const displayLocale = computed(() => (settingsStore.locale === 'nl' ? 'nl-NL' : 'en-US'))
 const selectedTripIndex = ref<number | null>(null)
-const heatmapEnabled = computed({
-  get: () => settingsStore.heatmapEnabled,
-  set: (v: boolean) => {
-    settingsStore.heatmapEnabled = v
-  },
-})
-const speedOverlayEnabled = computed({
-  get: () => settingsStore.speedOverlayEnabled,
-  set: (v: boolean) => {
-    settingsStore.speedOverlayEnabled = v
-  },
-})
-const routeOutlineEnabled = computed({
-  get: () => settingsStore.routeOutlineEnabled,
-  set: (v: boolean) => {
-    settingsStore.routeOutlineEnabled = v
-  },
-})
-const chargingStationsEnabled = computed({
-  get: () => settingsStore.chargingStationsEnabled,
-  set: (v: boolean) => {
-    settingsStore.chargingStationsEnabled = v
-  },
-})
-const chargingMinPowerKw = computed({
-  get: () => settingsStore.chargingMinPowerKw,
-  set: (v: number) => {
-    settingsStore.chargingMinPowerKw = v
-  },
-})
-const chargingMaxPowerKw = computed({
-  get: () => settingsStore.chargingMaxPowerKw,
-  set: (v: number) => {
-    settingsStore.chargingMaxPowerKw = v
-  },
-})
-
-// Slider value: [minKw, maxKw] where max=350 means "no upper limit" (stored as 0 in settings)
-const powerRangeSlider = computed({
-  get: (): [number, number] => [
-    chargingMinPowerKw.value,
-    chargingMaxPowerKw.value === 0 ? 350 : chargingMaxPowerKw.value,
-  ],
-  set: (value: number[]) => {
-    chargingMinPowerKw.value = value[0]!
-    chargingMaxPowerKw.value = (value[1] ?? 350) >= 350 ? 0 : value[1]!
-  },
-})
-
-const powerRangeLabel = computed(() => {
-  const min = chargingMinPowerKw.value
-  const max = chargingMaxPowerKw.value
-  if (min === 0 && max === 0) return t('trips.chargingPowerAny')
-  const minStr = min === 0 ? t('trips.chargingPowerAny') : `${min} kW`
-  const maxStr = max === 0 ? '350+ kW' : `${max} kW`
-  return `${minStr} - ${maxStr}`
-})
-
-function formatPowerTooltip(value: number): string {
-  if (value === 0) return t('trips.chargingPowerAny')
-  if (value >= 350) return '350+'
-  return String(value)
-}
+const heatmapEnabled = ref(true)
 let shouldSelectLatest = route.query.selectLatest === '1'
 
 const dateRangeDays = computed({
@@ -110,9 +37,8 @@ const dateRangeDays = computed({
     settingsStore.filterDays = v
   },
 })
-const LOAD_MORE_SIZE = 10
-const displayCount = ref(LOAD_MORE_SIZE)
-const sentinelRef = ref<HTMLElement | null>(null)
+const tripsPage = ref(1)
+const PAGE_SIZE = 10
 
 const mapWrapperRef = ref<HTMLElement | null>(null)
 const tripSidebarRef = ref<HTMLElement | null>(null)
@@ -121,13 +47,7 @@ let heatLayer: L.Layer | null = null
 let routeLines: L.Polyline[] = []
 let startMarker: L.Marker | null = null
 let endMarker: L.Marker | null = null
-let chargingCluster: L.FeatureGroup | null = null
-let chargingDebounceTimer: ReturnType<typeof setTimeout> | null = null
-let chargingFetchId = 0
-let initialChargingLoadDone = false
-let initialChargingUsedCarPos = false
 let resizeObserver: ResizeObserver | null = null
-let infiniteScrollObserver: IntersectionObserver | null = null
 let mapUpdateRaf: number | null = null
 
 type HeatLayerFactory = {
@@ -146,16 +66,6 @@ type HeatLayerFactory = {
 
 const leafWithHeat = L as typeof L & HeatLayerFactory
 
-type ClusterFactory = {
-  markerClusterGroup: (options?: {
-    iconCreateFunction?: (cluster: { getChildCount: () => number }) => L.DivIcon
-    maxClusterRadius?: number
-    disableClusteringAtZoom?: number
-    animate?: boolean
-  }) => L.FeatureGroup
-}
-const leafWithCluster = L as typeof L & ClusterFactory
-
 const tripColors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899']
 
 function tripColor(index: number): string {
@@ -166,41 +76,16 @@ function tripColorClass(index: number): string {
   return `trip-list__dot--${index % tripColors.length}`
 }
 
-const speedStops: Array<{ speed: number; r: number; g: number; b: number }> = [
-  { speed: 0, r: 16, g: 185, b: 129 },
-  { speed: 50, r: 132, g: 204, b: 22 },
-  { speed: 90, r: 245, g: 158, b: 11 },
-  { speed: 120, r: 249, g: 115, b: 22 },
-  { speed: 150, r: 239, g: 68, b: 68 },
-]
-
-function speedToColor(speed: number | null, fallback: string): string {
-  if (speed === null) return fallback
-  const s = Math.max(0, speed)
-  const last = speedStops[speedStops.length - 1]!
-  if (s >= last.speed) return `rgb(${last.r},${last.g},${last.b})`
-  let lo = speedStops[0]!
-  let hi = last
-  for (let i = 0; i < speedStops.length - 1; i++) {
-    if (s >= speedStops[i]!.speed && s < speedStops[i + 1]!.speed) {
-      lo = speedStops[i]!
-      hi = speedStops[i + 1]!
-      break
-    }
-  }
-  const t = (s - lo.speed) / (hi.speed - lo.speed)
-  const r = Math.round(lo.r + t * (hi.r - lo.r))
-  const g = Math.round(lo.g + t * (hi.g - lo.g))
-  const b = Math.round(lo.b + t * (hi.b - lo.b))
-  return `rgb(${r},${g},${b})`
-}
-
 // Static initial centre - controlled by fitAll/flyToStatus after data loads.
 const center: [number, number] = [52.3676, 4.9041]
 
 // Trips displayed newest-first in the sidebar; selectedTripIndex is always the real store.trips index.
 const newestFirstTrips = computed(() => [...store.trips].reverse())
-const displayTrips = computed(() => newestFirstTrips.value.slice(0, displayCount.value))
+const pageOffset = computed(() => (tripsPage.value - 1) * PAGE_SIZE)
+const displayTrips = computed(() =>
+  newestFirstTrips.value.slice(pageOffset.value, pageOffset.value + PAGE_SIZE),
+)
+const totalPages = computed(() => Math.max(1, Math.ceil(store.trips.length / PAGE_SIZE)))
 
 function realIndex(newestFirstIdx: number): number {
   return store.trips.length - 1 - newestFirstIdx
@@ -260,12 +145,6 @@ function buildRouteLines() {
   store.trips.forEach((trip, i) => {
     const pts = trip.points.map((p) => [p.latitude, p.longitude] as [number, number])
     if (pts.length < 2) return
-    if (routeOutlineEnabled.value) {
-      const border = L.polyline(pts, { color: '#111', weight: 7, opacity: 0.4 })
-      border.on('click', () => selectTrip(i))
-      border.addTo(map)
-      routeLines.push(border)
-    }
     const line = L.polyline(pts, { color: tripColor(i), weight: 3, opacity: 0.75 })
     line.on('click', () => selectTrip(i))
     line.addTo(map)
@@ -280,38 +159,11 @@ function buildSelectedLine() {
   clearRouteLines()
   const trip = store.trips[idx]
   if (!trip) return
-  const pts = trip.points
+  const pts = trip.points.map((p) => [p.latitude, p.longitude] as [number, number])
   if (pts.length < 2) return
-
-  const coords = pts.map((p) => [p.latitude, p.longitude] as [number, number])
-
-  if (routeOutlineEnabled.value) {
-    const border = L.polyline(coords, { color: '#111', weight: 9, opacity: 0.4 })
-    border.addTo(map)
-    routeLines.push(border)
-  }
-
-  if (speedOverlayEnabled.value) {
-    for (let i = 0; i < pts.length - 1; i++) {
-      const p0 = pts[i]!
-      const p1 = pts[i + 1]!
-      const color = speedToColor(p0.speed, tripColor(idx))
-      const segment = L.polyline(
-        [
-          [p0.latitude, p0.longitude],
-          [p1.latitude, p1.longitude],
-        ],
-        { color, weight: 5, opacity: 1, lineCap: 'square' },
-      )
-      segment.addTo(map)
-      routeLines.push(segment)
-    }
-  } else {
-    const line = L.polyline(coords, { color: tripColor(idx), weight: 5, opacity: 1 })
-    line.addTo(map)
-    routeLines.push(line)
-  }
-
+  const line = L.polyline(pts, { color: tripColor(idx), weight: 5, opacity: 1 })
+  line.addTo(map)
+  routeLines.push(line)
   buildTripMarkers(trip)
 }
 
@@ -344,131 +196,6 @@ function removeHeatLayer() {
   if (heatLayer) {
     heatLayer.remove()
     heatLayer = null
-  }
-}
-
-function clearChargingMarkers() {
-  if (chargingCluster) {
-    chargingCluster.remove()
-    chargingCluster = null
-  }
-}
-
-function getBoundsRadiusKm(): number {
-  const map = mapInstance.value
-  if (!map) return 10
-  const bounds = map.getBounds()
-  const distanceM = bounds.getCenter().distanceTo(bounds.getNorthEast())
-  return Math.min(Math.ceil(distanceM / 1000), 200)
-}
-
-// Scale the initial search radius based on min-power filter so high-power DC chargers
-// (which are sparse) are found even when no station is close by.
-function getInitialRadius(): number {
-  const minkw = chargingMinPowerKw.value
-  if (minkw >= 150) return 200
-  if (minkw >= 100) return 100
-  if (minkw >= 50) return 50
-  return 15
-}
-
-function buildChargingPopup(station: ChargingStation): string {
-  // Group connectors by type+power, summing quantity so "11 kW × 4" shows instead
-  // of four identical rows when OCM returns one record per port rather than one with Quantity=4.
-  const grouped = new Map<string, { type: string | null; powerKw: number | null; count: number }>()
-  for (const c of station.connectors) {
-    if (!c.type && c.powerKw == null) continue
-    const key = `${c.type ?? ''}|${c.powerKw ?? ''}`
-    const existing = grouped.get(key)
-    const qty = c.quantity ?? 1
-    if (existing) {
-      existing.count += qty
-    } else {
-      grouped.set(key, { type: c.type, powerKw: c.powerKw, count: qty })
-    }
-  }
-
-  const connectorItems = [...grouped.values()]
-    .map(({ type, powerKw, count }) => {
-      const parts = [type, powerKw != null ? `${powerKw} kW` : null].filter(Boolean)
-      const suffix = count > 1 ? ` ×${count}` : ''
-      return `<li>${parts.join(' · ')}${suffix}</li>`
-    })
-    .join('')
-
-  const stallLine =
-    station.numberOfPoints != null
-      ? `<div class="charging-popup__stalls">${station.numberOfPoints} ${station.numberOfPoints === 1 ? t('trips.chargingStall') : t('trips.chargingStalls')}</div>`
-      : ''
-
-  return `<div class="charging-popup">
-    <strong class="charging-popup__title">${station.title}</strong>
-    ${station.operator ? `<div class="charging-popup__operator">${station.operator}</div>` : ''}
-    ${station.addressLine || station.town ? `<div class="charging-popup__address">${[station.addressLine, station.town].filter(Boolean).join(', ')}</div>` : ''}
-    ${stallLine}
-    ${connectorItems ? `<ul class="charging-popup__connectors">${connectorItems}</ul>` : ''}
-  </div>`
-}
-
-async function loadChargingStations(initialCenter?: { lat: number; lng: number }) {
-  const map = mapInstance.value
-  if (!map || !chargingStationsEnabled.value || isHev.value) {
-    clearChargingMarkers()
-    return
-  }
-  const fetchId = ++chargingFetchId
-  const s = status.value
-  const mc = map.getBounds().getCenter()
-  const center =
-    initialCenter ??
-    (allPoints.value.length === 0 && s?.latitude != null && s?.longitude != null
-      ? { lat: s.latitude, lng: s.longitude }
-      : { lat: mc.lat, lng: mc.lng })
-  // Initial car-position load uses a radius scaled to the power filter so high-power
-  // DC chargers (which are sparse) are reachable. Pan/zoom reloads use the viewport.
-  const radiusKm = initialCenter != null ? getInitialRadius() : getBoundsRadiusKm()
-  try {
-    const stations = await mapApi.chargingStations(
-      center.lat,
-      center.lng,
-      radiusKm,
-      chargingMinPowerKw.value,
-      chargingMaxPowerKw.value,
-    )
-    if (fetchId !== chargingFetchId) return
-    clearChargingMarkers()
-    if (!chargingStationsEnabled.value) return
-
-    chargingCluster = leafWithCluster.markerClusterGroup({
-      maxClusterRadius: 60,
-      disableClusteringAtZoom: 16,
-      animate: true,
-      iconCreateFunction: (cluster) => {
-        const count = cluster.getChildCount()
-        return L.divIcon({
-          className: '',
-          html: `<div class="charging-cluster">${count}</div>`,
-          iconSize: [36, 36],
-          iconAnchor: [18, 18],
-        })
-      },
-    })
-
-    for (const station of stations) {
-      const cls = station.isOperational === false ? ' charging-marker--unknown' : ''
-      const icon = L.divIcon({
-        className: '',
-        html: `<div class="charging-marker${cls}">&#9889;</div>`,
-        iconSize: [28, 28],
-        iconAnchor: [14, 14],
-      })
-      const marker = L.marker([station.latitude, station.longitude], { icon })
-      marker.bindPopup(buildChargingPopup(station))
-      chargingCluster.addLayer(marker)
-    }
-    chargingCluster.addTo(map)
-  } catch {
-    // OCM is optional; silently ignore errors
   }
 }
 
@@ -515,15 +242,6 @@ function onMapReady(map: LeafletMap) {
     resizeObserver.observe(mapWrapperRef.value)
   }
 
-  map.on('moveend zoomend', () => {
-    if (!chargingStationsEnabled.value || !initialChargingLoadDone) return
-    if (chargingDebounceTimer !== null) clearTimeout(chargingDebounceTimer)
-    chargingDebounceTimer = setTimeout(() => {
-      chargingDebounceTimer = null
-      loadChargingStations()
-    }, 500)
-  })
-
   // nextTick: wait for Vue DOM → requestAnimationFrame: wait for browser layout pass.
   // Without rAF, clientHeight is still 0 on mobile because the flex heights haven't been
   // computed by the browser yet even though the DOM is ready.
@@ -537,20 +255,6 @@ function onMapReady(map: LeafletMap) {
       } else if (status.value?.latitude != null && status.value?.longitude != null) {
         map.setView([status.value.latitude, status.value.longitude], 14, { animate: false })
       }
-      const s = status.value
-      if (s?.latitude != null && s?.longitude != null) {
-        initialChargingUsedCarPos = true
-        loadChargingStations({ lat: s.latitude, lng: s.longitude })
-      } else {
-        loadChargingStations()
-      }
-      // Allow moveend/zoomend to trigger reloads only after the initial load is kicked off.
-      // Prevents fitAll/invalidateSize moveend events from overriding the car-position fetch.
-      if (chargingDebounceTimer !== null) {
-        clearTimeout(chargingDebounceTimer)
-        chargingDebounceTimer = null
-      }
-      initialChargingLoadDone = true
     })
   })
 }
@@ -560,12 +264,6 @@ watch(status, (s) => {
   if (!mapInstance.value || s?.latitude == null || s?.longitude == null) return
   if (allPoints.value.length === 0) {
     mapInstance.value.setView([s.latitude, s.longitude], 14, { animate: false })
-  }
-  // If status arrived after the initial charging load (demo mode / slow API), redo it
-  // with the actual car position so stations appear near the car, not the map center.
-  if (chargingStationsEnabled.value && initialChargingLoadDone && !initialChargingUsedCarPos) {
-    initialChargingUsedCarPos = true
-    loadChargingStations({ lat: s.latitude, lng: s.longitude })
   }
 })
 
@@ -580,19 +278,6 @@ watch(allPoints, async (pts) => {
     selectTrip(store.trips.length - 1)
   } else {
     fitAll()
-    // fitAll fires moveend synchronously, arming the debounce to reload stations from
-    // the zoomed-out map center. Cancel it and keep stations centered on the car.
-    if (chargingDebounceTimer !== null) {
-      clearTimeout(chargingDebounceTimer)
-      chargingDebounceTimer = null
-    }
-    if (chargingStationsEnabled.value && initialChargingLoadDone) {
-      const s = status.value
-      if (s?.latitude != null && s?.longitude != null) {
-        initialChargingUsedCarPos = true
-        loadChargingStations({ lat: s.latitude, lng: s.longitude })
-      }
-    }
   }
 })
 
@@ -624,70 +309,19 @@ watch(heatmapEnabled, (enabled) => {
   else removeHeatLayer()
 })
 
-// Speed overlay toggle while a trip is selected
-watch(speedOverlayEnabled, () => {
-  if (selectedTripIndex.value === null) return
-  if (mapUpdateRaf !== null) cancelAnimationFrame(mapUpdateRaf)
-  mapUpdateRaf = requestAnimationFrame(() => {
-    mapUpdateRaf = null
-    buildSelectedLine()
-  })
-})
-
-// Charging stations toggle and filter changes
-watch(chargingStationsEnabled, (enabled) => {
-  if (enabled) loadChargingStations()
-  else clearChargingMarkers()
-})
-
-watch(isHev, (hev) => {
-  if (hev) clearChargingMarkers()
-  else if (chargingStationsEnabled.value) reloadChargingFromCarOrViewport()
-})
-
-function reloadChargingFromCarOrViewport() {
-  if (!chargingStationsEnabled.value) return
-  const s = status.value
-  if (s?.latitude != null && s?.longitude != null) {
-    loadChargingStations({ lat: s.latitude, lng: s.longitude })
-  } else {
-    loadChargingStations()
-  }
-}
-
-watch(chargingMinPowerKw, reloadChargingFromCarOrViewport)
-watch(chargingMaxPowerKw, reloadChargingFromCarOrViewport)
-
-// Route outline toggle: rebuild whichever layer is currently active
-watch(routeOutlineEnabled, () => {
-  if (mapUpdateRaf !== null) cancelAnimationFrame(mapUpdateRaf)
-  mapUpdateRaf = requestAnimationFrame(() => {
-    mapUpdateRaf = null
-    if (selectedTripIndex.value === null) buildRouteLines()
-    else buildSelectedLine()
-  })
-})
-
 // Date range change: reload trips and reset state
 watch(dateRangeDays, async (days) => {
-  displayCount.value = LOAD_MORE_SIZE
+  tripsPage.value = 1
   selectedTripIndex.value = null
   if (vin.value) {
     await store.fetchTrips(vin.value, new Date(Date.now() - days * 86_400_000).toISOString())
   }
 })
 
-// Trip just finished: silently prepend without resetting selection or page
-watch(
-  () => store.tripJustCompleted,
-  async (completed) => {
-    if (!completed || !vin.value) return
-    await store.fetchTrips(
-      vin.value,
-      new Date(Date.now() - dateRangeDays.value * 86_400_000).toISOString(),
-    )
-  },
-)
+// Deselect when paginating
+watch(tripsPage, () => {
+  selectedTripIndex.value = null
+})
 
 function selectTrip(realIdx: number) {
   if (selectedTripIndex.value === realIdx) {
@@ -698,17 +332,10 @@ function selectTrip(realIdx: number) {
   nextTick(() => {
     const sidebar = tripSidebarRef.value
     const active = sidebar?.querySelector('.trip-list__item--active') as HTMLElement | null
-    if (!sidebar || !active) return
-    const header = sidebar.querySelector('.trip-sidebar__header') as HTMLElement | null
-    const headerHeight = header?.offsetHeight ?? 0
-    const sidebarRect = sidebar.getBoundingClientRect()
-    const itemRect = active.getBoundingClientRect()
-    const itemTop = itemRect.top - sidebarRect.top
-    const itemBottom = itemRect.bottom - sidebarRect.top
-    if (itemTop < headerHeight) {
-      sidebar.scrollBy({ top: itemTop - headerHeight, behavior: 'smooth' })
-    } else if (itemBottom > sidebarRect.height) {
-      sidebar.scrollBy({ top: itemBottom - sidebarRect.height, behavior: 'smooth' })
+    if (sidebar && active) {
+      const sidebarRect = sidebar.getBoundingClientRect()
+      const itemRect = active.getBoundingClientRect()
+      sidebar.scrollBy({ top: itemRect.top - sidebarRect.top, behavior: 'smooth' })
     }
   })
 }
@@ -727,28 +354,12 @@ onMounted(async () => {
       ),
     ])
   }
-  nextTick(() => {
-    if (sentinelRef.value && tripSidebarRef.value) {
-      infiniteScrollObserver = new IntersectionObserver(
-        ([entry]) => {
-          if (entry?.isIntersecting && displayCount.value < store.trips.length) {
-            displayCount.value += LOAD_MORE_SIZE
-          }
-        },
-        { root: tripSidebarRef.value },
-      )
-      infiniteScrollObserver.observe(sentinelRef.value)
-    }
-  })
 })
 
 onUnmounted(() => {
   if (mapUpdateRaf !== null) cancelAnimationFrame(mapUpdateRaf)
-  if (chargingDebounceTimer !== null) clearTimeout(chargingDebounceTimer)
   removeHeatLayer()
-  clearChargingMarkers()
   resizeObserver?.disconnect()
-  infiniteScrollObserver?.disconnect()
 })
 </script>
 
@@ -760,11 +371,7 @@ onUnmounted(() => {
         <FiltersPanel>
           <div class="settings-toggle">
             <div class="settings-toggle__info">
-              <span class="settings-toggle__label">
-                <font-awesome-icon icon="calendar-check" class="settings-toggle__icon" />
-                {{ t('trips.dateRange') }}
-              </span>
-              <span class="settings-toggle__desc">{{ t('trips.dateRangeDesc') }}</span>
+              <span class="settings-toggle__label">{{ t('trips.dateRange') }}</span>
             </div>
             <div class="settings-toggle__control">
               <select v-model="dateRangeDays" class="form-select form-select-sm">
@@ -776,102 +383,12 @@ onUnmounted(() => {
           </div>
           <div class="settings-toggle">
             <div class="settings-toggle__info">
-              <span class="settings-toggle__label">
-                <font-awesome-icon icon="fire" class="settings-toggle__icon" />
-                {{ t('trips.heatmap') }}
-              </span>
-              <span class="settings-toggle__desc">{{ t('trips.heatmapDesc') }}</span>
+              <span class="settings-toggle__label">{{ t('trips.heatmap') }}</span>
             </div>
             <div class="settings-toggle__control form-check form-switch">
-              <input
-                v-model="heatmapEnabled"
-                type="checkbox"
-                class="form-check-input"
-                :aria-label="t('trips.heatmap')"
-              />
+              <input v-model="heatmapEnabled" type="checkbox" class="form-check-input" />
             </div>
           </div>
-          <div class="settings-toggle">
-            <div class="settings-toggle__info">
-              <span class="settings-toggle__label">
-                <font-awesome-icon icon="route" class="settings-toggle__icon" />
-                {{ t('trips.routeOutline') }}
-              </span>
-              <span class="settings-toggle__desc">{{ t('trips.routeOutlineDesc') }}</span>
-            </div>
-            <div class="settings-toggle__control form-check form-switch">
-              <input
-                v-model="routeOutlineEnabled"
-                type="checkbox"
-                class="form-check-input"
-                :aria-label="t('trips.routeOutline')"
-              />
-            </div>
-          </div>
-          <div class="settings-toggle">
-            <div class="settings-toggle__info">
-              <span class="settings-toggle__label">
-                <font-awesome-icon icon="gauge" class="settings-toggle__icon" />
-                {{ t('trips.speedOverlay') }}
-              </span>
-              <span class="settings-toggle__desc">{{ t('trips.speedOverlayDesc') }}</span>
-            </div>
-            <div class="settings-toggle__control form-check form-switch">
-              <input
-                v-model="speedOverlayEnabled"
-                type="checkbox"
-                class="form-check-input"
-                :aria-label="t('trips.speedOverlay')"
-              />
-            </div>
-          </div>
-          <template v-if="!isHev">
-            <div class="settings-toggle">
-              <div class="settings-toggle__info">
-                <span class="settings-toggle__label">
-                  <font-awesome-icon icon="bolt" class="settings-toggle__icon" />
-                  {{ t('trips.chargingStations') }}
-                </span>
-                <span class="settings-toggle__desc">{{ t('trips.chargingStationsDesc') }}</span>
-              </div>
-              <div class="settings-toggle__control form-check form-switch">
-                <input
-                  v-model="chargingStationsEnabled"
-                  type="checkbox"
-                  class="form-check-input"
-                  :aria-label="t('trips.chargingStations')"
-                />
-              </div>
-            </div>
-            <template v-if="chargingStationsEnabled">
-              <div class="charging-power-filter">
-                <div class="charging-power-filter__header">
-                  <div>
-                    <span class="settings-toggle__label">
-                      <font-awesome-icon icon="bolt" class="settings-toggle__icon" />
-                      {{ t('trips.chargingPower') }}
-                    </span>
-                    <span class="settings-toggle__desc">{{ t('trips.chargingPowerDesc') }}</span>
-                  </div>
-                  <span class="charging-power-filter__range">{{ powerRangeLabel }}</span>
-                </div>
-                <div class="charging-power-filter__slider">
-                  <Slider
-                    v-model="powerRangeSlider"
-                    :min="0"
-                    :max="350"
-                    :step="10"
-                    :tooltips="true"
-                    :format="formatPowerTooltip"
-                    :merge="50"
-                    :lazy="false"
-                    class="charging-slider"
-                    :aria-label="[t('trips.chargingMinPower'), t('trips.chargingMaxPower')]"
-                  />
-                </div>
-              </div>
-            </template>
-          </template>
         </FiltersPanel>
         <button
           class="btn btn-sm btn-outline-secondary"
@@ -887,64 +404,61 @@ onUnmounted(() => {
     <div class="map-layout">
       <!-- Trip sidebar -->
       <aside ref="tripSidebarRef" class="trip-sidebar">
-        <div class="trip-sidebar__header">
-          <h3 class="trip-sidebar__title">{{ t('trips.title') }}</h3>
-        </div>
+        <h3 class="trip-sidebar__title">{{ t('trips.title') }}</h3>
 
-        <div v-if="store.loading" class="trip-list">
-          <div v-for="i in LOAD_MORE_SIZE" :key="i" class="trip-list__item">
-            <span class="trip-list__dot skeleton" />
-            <div class="trip-list__info">
-              <div class="trip-list__header">
-                <span class="skeleton skeleton--text skeleton--text-lg" />
-                <span class="skeleton skeleton--trip-time" />
-              </div>
-              <span class="skeleton skeleton--text skeleton--text-md" />
-            </div>
-          </div>
+        <div v-if="store.loading" class="loading-state">
+          <font-awesome-icon icon="spinner" spin />
         </div>
 
         <div v-else-if="!store.trips.length" class="empty-state text-sm">
           {{ t('trips.noTrips') }}
         </div>
 
-        <ul v-else class="trip-list">
-          <li
-            v-for="(trip, displayIdx) in displayTrips"
-            :key="displayIdx"
-            class="trip-list__item"
-            :class="{
-              'trip-list__item--active': selectedTripIndex === realIndex(displayIdx),
-            }"
-            @click="selectTrip(realIndex(displayIdx))"
-          >
-            <span class="trip-list__dot" :class="tripColorClass(realIndex(displayIdx))" />
-            <div class="trip-list__info">
-              <div class="trip-list__header">
-                <span
-                  class="trip-list__name"
-                  :title="new Date(trip.startedAt).toLocaleDateString(displayLocale)"
-                  >{{ new Date(trip.startedAt).toLocaleDateString(displayLocale) }}</span
-                >
-                <span class="trip-list__time">{{
-                  new Date(trip.startedAt).toLocaleTimeString(displayLocale, {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })
-                }}</span>
-              </div>
+        <template v-else>
+          <AppPaginator
+            v-if="totalPages > 1"
+            v-model="tripsPage"
+            :total-pages="totalPages"
+            class="paginator--top"
+          />
+
+          <ul class="trip-list">
+            <li
+              v-for="(trip, displayIdx) in displayTrips"
+              :key="pageOffset + displayIdx"
+              class="trip-list__item"
+              :class="{
+                'trip-list__item--active': selectedTripIndex === realIndex(pageOffset + displayIdx),
+              }"
+              @click="selectTrip(realIndex(pageOffset + displayIdx))"
+            >
               <span
-                class="trip-list__meta"
-                :title="`${trip.distanceKm} ${t('common.km')} · ${formatDuration(trip.startedAt, trip.endedAt)} · ${trip.pointCount} ${t('trips.points')}`"
-              >
-                {{ trip.distanceKm }} {{ t('common.km') }} &middot;
-                {{ formatDuration(trip.startedAt, trip.endedAt) }} &middot; {{ trip.pointCount }}
-                {{ t('trips.points') }}
-              </span>
-            </div>
-          </li>
-        </ul>
-        <div ref="sentinelRef" />
+                class="trip-list__dot"
+                :class="tripColorClass(realIndex(pageOffset + displayIdx))"
+              />
+              <div class="trip-list__info">
+                <div class="trip-list__header">
+                  <span class="trip-list__name">{{
+                    new Date(trip.startedAt).toLocaleDateString(displayLocale)
+                  }}</span>
+                  <span class="trip-list__time">{{
+                    new Date(trip.startedAt).toLocaleTimeString(displayLocale, {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })
+                  }}</span>
+                </div>
+                <span class="trip-list__meta">
+                  {{ trip.distanceKm }} {{ t('common.km') }} &middot;
+                  {{ formatDuration(trip.startedAt, trip.endedAt) }} &middot;
+                  {{ trip.pointCount }}
+                </span>
+              </div>
+            </li>
+          </ul>
+
+          <AppPaginator v-if="totalPages > 1" v-model="tripsPage" :total-pages="totalPages" />
+        </template>
       </aside>
 
       <!-- Map -->
@@ -965,28 +479,12 @@ onUnmounted(() => {
             <LPopup>{{ store.vehicles[0]?.model ?? store.vehicles[0]?.vin }}</LPopup>
           </LMarker>
         </LMap>
-
-        <div
-          v-if="speedOverlayEnabled && selectedTripIndex !== null"
-          class="speed-legend"
-          :aria-label="t('trips.speedOverlay')"
-        >
-          <div class="speed-legend__bar"></div>
-          <div class="speed-legend__labels">
-            <span>0</span>
-            <span>50</span>
-            <span>90</span>
-            <span>130+ km/h</span>
-          </div>
-        </div>
       </div>
     </div>
   </div>
 </template>
 
 <style>
-@import '@vueform/slider/themes/default.css';
-
 /* Leaflet injects divIcon HTML outside Vue's rendering pipeline so these cannot be scoped */
 
 .trip-marker--start {
@@ -1057,32 +555,5 @@ onUnmounted(() => {
   70% {
     transform: skewY(3deg) scaleX(0.97);
   }
-}
-
-.charging-power-filter {
-  padding: 0.25rem 0 0.5rem;
-}
-
-.charging-power-filter__header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.9rem;
-}
-
-.charging-power-filter__range {
-  font-size: 0.75rem;
-  color: var(--color-text-muted, #888);
-}
-
-.charging-power-filter__slider {
-  padding: 0 0.5rem;
-}
-
-.charging-slider {
-  --slider-connect-bg: #22c55e;
-  --slider-tooltip-bg: #22c55e;
-  --slider-tooltip-color: #fff;
-  --slider-handle-ring-color: rgba(34, 197, 94, 0.2);
 }
 </style>

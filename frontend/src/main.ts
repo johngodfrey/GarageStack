@@ -2,33 +2,6 @@ import './assets/main.css'
 import 'leaflet/dist/leaflet.css'
 
 import { createApp } from 'vue'
-
-if ('serviceWorker' in navigator) {
-  let refreshing = false
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (refreshing) return
-    refreshing = true
-    window.location.reload()
-  })
-
-  // If a SW install fails (e.g. stale precache manifest after deploy while
-  // sw.js was HTTP-cached as immutable), unregister and reload so the next
-  // load fetches a fresh sw.js and installs cleanly.
-  const watchInstalling = (sw: ServiceWorker, reg: ServiceWorkerRegistration) =>
-    sw.addEventListener('statechange', () => {
-      if (sw.state === 'redundant') reg.unregister().then(() => window.location.reload())
-    })
-
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.getRegistration('/').then((reg) => {
-      if (!reg) return
-      if (reg.installing) watchInstalling(reg.installing, reg)
-      reg.addEventListener('updatefound', () => {
-        if (reg.installing) watchInstalling(reg.installing, reg)
-      })
-    })
-  })
-}
 import { createPinia } from 'pinia'
 import { createI18n } from 'vue-i18n'
 import { library } from '@fortawesome/fontawesome-svg-core'
@@ -77,8 +50,6 @@ import {
   faPlugCircleCheck,
   faChevronRight,
   faChevronLeft,
-  faAnglesLeft,
-  faAnglesRight,
   faLightbulb,
   faCircle,
   faUser,
@@ -105,7 +76,6 @@ import {
   faChargingStation,
   faFlask,
   faGripLines,
-  faLifeRing,
 } from '@fortawesome/free-solid-svg-icons'
 
 import App from './App.vue'
@@ -160,8 +130,6 @@ library.add(
   faPlugCircleCheck,
   faChevronRight,
   faChevronLeft,
-  faAnglesLeft,
-  faAnglesRight,
   faLightbulb,
   faCircle,
   faUser,
@@ -188,7 +156,6 @@ library.add(
   faChargingStation,
   faFlask,
   faGripLines,
-  faLifeRing,
 )
 
 const i18n = createI18n({

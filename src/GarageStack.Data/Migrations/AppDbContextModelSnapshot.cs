@@ -290,9 +290,6 @@ namespace GarageStack.Data.Migrations
                     b.Property<bool?>("RearWindowDefroster")
                         .HasColumnType("boolean");
 
-                    b.Property<bool?>("SteeringWheelHeating")
-                        .HasColumnType("boolean");
-
                     b.Property<DateTime>("RecordedAt")
                         .HasColumnType("timestamp with time zone");
 

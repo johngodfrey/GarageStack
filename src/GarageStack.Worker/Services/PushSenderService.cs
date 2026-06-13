@@ -1,4 +1,3 @@
-using System.Text.Json;
 using GarageStack.Core.Interfaces;
 using GarageStack.Data;
 using Lib.Net.Http.WebPush;
@@ -53,30 +52,15 @@ public sealed class PushSenderService : IPushSender, IDisposable
         {
             using var recordScope = _scopeFactory.CreateScope();
             var recordDb = recordScope.ServiceProvider.GetRequiredService<AppDbContext>();
-            var record = new GarageStack.Core.Models.AppNotification
+            recordDb.AppNotifications.Add(new GarageStack.Core.Models.AppNotification
             {
                 Title = title,
                 Body = body,
                 CreatedAt = DateTime.UtcNow,
                 Category = category,
                 VehicleId = vehicleId,
-            };
-            recordDb.AppNotifications.Add(record);
-            await recordDb.SaveChangesAsync(ct);
-
-            // Signal the API process via PostgreSQL so connected browser clients get
-            // an immediate notificationReceived push without polling.
-            var notifyJson = JsonSerializer.Serialize(new
-            {
-                id = record.Id,
-                title = record.Title,
-                body = record.Body,
-                createdAt = record.CreatedAt.ToString("O"),
-                category = record.Category,
-                vehicleId = record.VehicleId,
             });
-            await recordDb.Database.ExecuteSqlInterpolatedAsync(
-                $"SELECT pg_notify('notification_created', {notifyJson})", ct);
+            await recordDb.SaveChangesAsync(ct);
         }
         catch (Exception ex)
         {

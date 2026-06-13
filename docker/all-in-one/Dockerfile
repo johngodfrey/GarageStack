@@ -47,7 +47,7 @@ FROM python:3.14-slim
 
 ARG DEBIAN_FRONTEND=noninteractive
 
-# bash          -- required by entrypoint.sh and dotnet-install.sh (slim images ship dash only)
+# bash  -- required by entrypoint.sh and dotnet-install.sh (slim images ship dash only)
 # libgssapi-krb5-2 -- required by the .NET runtime
 # libicu76 -- required by ASP.NET Core localization / CultureInfo("en", "nl")
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \

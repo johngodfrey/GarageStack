@@ -117,7 +117,6 @@ export interface TelemetrySnapshot {
   heatedSeatFrontLeft: number | null
   heatedSeatFrontRight: number | null
   rearWindowDefroster: boolean | null
-  steeringWheelHeating: boolean | null
   isAvailable: boolean | null
   lastVehicleStateAt: string | null
   lastChargeStateAt: string | null
@@ -141,12 +140,6 @@ export interface TelemetrySnapshot {
   chargingScheduleEndTime: string | null
   onboardChargerPlugStatus: number | null
   offboardChargerPlugStatus: number | null
-}
-
-export interface VehicleAggregateStats {
-  climateUsagePct: number | null
-  climateOnSnapshots: number
-  totalClimateSnapshots: number
 }
 
 export interface TripPoint {
@@ -190,12 +183,6 @@ export const vehicleApi = {
   },
   sendCommand: (vin: string, command: string, value: string) =>
     send(`/api/vehicles/${vin}/commands/${command}`, 'POST', { value }),
-  stats: (vin: string, from?: string, to?: string) => {
-    const params = new URLSearchParams()
-    if (from) params.set('from', from)
-    if (to) params.set('to', to)
-    return request<VehicleAggregateStats>(`/api/vehicles/${vin}/stats?${params}`)
-  },
 }
 
 export interface DemoStatusOverride {
@@ -231,7 +218,8 @@ export const pushApi = {
   getVapidPublicKey: () => request<{ publicKey: string }>('/api/push/vapid-public-key'),
   subscribe: (endpoint: string, p256DhKey: string, authKey: string) =>
     send('/api/push/subscribe', 'POST', { endpoint, p256DhKey, authKey }),
-  unsubscribe: (endpoint: string) => send('/api/push/unsubscribe', 'POST', { endpoint }),
+  unsubscribe: (endpoint: string) =>
+    send(`/api/push/unsubscribe?endpoint=${encodeURIComponent(endpoint)}`, 'DELETE'),
 }
 
 export interface AppNotification {
@@ -249,44 +237,6 @@ export const notificationsApi = {
   archiveAll: () => send('/api/notifications/archive-all', 'PATCH'),
   delete: (id: number) => send(`/api/notifications/${id}`, 'DELETE'),
   deleteAll: () => send('/api/notifications', 'DELETE'),
-}
-
-export interface Connector {
-  type: string | null
-  powerKw: number | null
-  quantity: number | null
-}
-
-export interface ChargingStation {
-  id: number
-  title: string
-  latitude: number
-  longitude: number
-  addressLine: string | null
-  town: string | null
-  operator: string | null
-  isOperational: boolean | null
-  numberOfPoints: number | null
-  connectors: Connector[]
-}
-
-export const mapApi = {
-  chargingStations: (
-    lat: number,
-    lng: number,
-    distanceKm: number,
-    minPowerKw = 0,
-    maxPowerKw = 0,
-  ) => {
-    const params = new URLSearchParams({
-      lat: String(lat),
-      lng: String(lng),
-      distanceKm: String(distanceKm),
-      minPowerKw: String(minPowerKw),
-      maxPowerKw: String(maxPowerKw),
-    })
-    return request<ChargingStation[]>(`/api/map/charging-stations?${params}`)
-  },
 }
 
 export interface MeResponse {

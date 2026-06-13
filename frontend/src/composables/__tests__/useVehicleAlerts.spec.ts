@@ -56,7 +56,6 @@ function makeSnapshot(overrides: Partial<TelemetrySnapshot> = {}): TelemetrySnap
     heatedSeatFrontLeft: null,
     heatedSeatFrontRight: null,
     rearWindowDefroster: null,
-    steeringWheelHeating: null,
     isAvailable: null,
     lastVehicleStateAt: null,
     lastChargeStateAt: null,
@@ -121,19 +120,21 @@ describe('getOpenItems', () => {
     expect(items).toContain('bonnet')
   })
 
-  it('detects open windows', () => {
+  it('detects open windows and sunroof', () => {
     const items = getOpenItems(
       makeSnapshot({
         driverWindowOpen: true,
         passengerWindowOpen: true,
         rearLeftWindowOpen: true,
         rearRightWindowOpen: true,
+        sunRoofOpen: true,
       }),
     )
     expect(items).toContain('driver window')
     expect(items).toContain('passenger window')
     expect(items).toContain('rear left window')
     expect(items).toContain('rear right window')
+    expect(items).not.toContain('sunroof')
   })
 
   it('returns only open items when mixed', () => {

@@ -42,16 +42,6 @@ public sealed class DemoTelemetryRepository : ITelemetryRepository
         Task.FromResult<IReadOnlyList<TripDto>>(
             _allTrips.Value.Where(t => t.StartedAt >= from && t.StartedAt <= to).ToList());
 
-    public Task<VehicleAggregateStats> GetAggregateStatsAsync(
-        int vehicleId, DateTime from, DateTime to, CancellationToken ct = default)
-    {
-        var history = _history.Value.Where(s => s.RecordedAt >= from && s.RecordedAt <= to).ToList();
-        var known = history.Count(s => s.ClimateOn != null);
-        var on = history.Count(s => s.ClimateOn == true);
-        var pct = known > 0 ? (int?)Math.Round((double)on / known * 100) : null;
-        return Task.FromResult(new VehicleAggregateStats(pct, on, known));
-    }
-
     public void ApplyOverride(DemoStatusOverrideDto dto)
     {
         lock (_lock)
@@ -90,8 +80,6 @@ public sealed class DemoTelemetryRepository : ITelemetryRepository
         Id = 1,
         VehicleId = 1,
         RecordedAt = DateTime.UtcNow.AddMinutes(-3),
-        FuelLevelPercent = 68,
-        FuelRangeKm = 420,
         EvSocPercent = 78,
         HvSocKwh = Math.Round(78.0 / 100.0 * 70.0, 1),
         HvTotalCapacityKwh = 70.0,
@@ -144,7 +132,6 @@ public sealed class DemoTelemetryRepository : ITelemetryRepository
         HeatedSeatFrontLeft = 0,
         HeatedSeatFrontRight = 0,
         RearWindowDefroster = false,
-        SteeringWheelHeating = false,
         IsAvailable = true,
         LastVehicleStateAt = DateTime.UtcNow.AddMinutes(-3),
         LastChargeStateAt = DateTime.UtcNow.AddHours(-8),
@@ -163,7 +150,6 @@ public sealed class DemoTelemetryRepository : ITelemetryRepository
         var baseDate = DateTime.UtcNow.Date.AddDays(-30);
         var odometer = 24300.0;
         var soc = 88.0;
-        var fuel = 80.0;
         var idCounter = 100L;
 
         // 4 snapshots per day: depart (7h), midday (12h), return (17h), plug in (22h)
@@ -184,24 +170,16 @@ public sealed class DemoTelemetryRepository : ITelemetryRepository
                 {
                     var consumed = 6 + rng.Next(0, 5);
                     soc -= consumed;
-                    fuel -= 1.5 + rng.NextDouble();
                     odometer += consumed * 7.2;
                 }
                 else if (hour == 17)
                 {
                     var consumed = 5 + rng.Next(0, 5);
                     soc -= consumed;
-                    fuel -= 1.0 + rng.NextDouble();
                     odometer += consumed * 7.2;
-                }
-                else if (hour == 22 && day % 7 == 0)
-                {
-                    // weekly refuel
-                    fuel = 90 + rng.Next(0, 10);
                 }
 
                 soc = Math.Clamp(soc, 10, 97);
-                fuel = Math.Clamp(fuel, 5, 100);
 
                 var isCharging = hour == 22;
                 var extTemp = 13.0 + (rng.NextDouble() - 0.5) * 10.0;
@@ -213,8 +191,6 @@ public sealed class DemoTelemetryRepository : ITelemetryRepository
                     Id = idCounter++,
                     VehicleId = 1,
                     RecordedAt = ts,
-                    FuelLevelPercent = Math.Round(fuel, 1),
-                    FuelRangeKm = Math.Round(fuel / 100.0 * 650.0, 0),
                     EvSocPercent = Math.Round(soc, 1),
                     HvSocKwh = Math.Round(soc / 100.0 * 70.0, 1),
                     HvTotalCapacityKwh = 70.0,
@@ -247,152 +223,108 @@ public sealed class DemoTelemetryRepository : ITelemetryRepository
         var now = DateTime.UtcNow;
         return
         [
-            // All waypoints sourced from OSRM road routing — coordinates follow real roads.
             BuildTrip(0, now.AddDays(-2).AddHours(8), "Amsterdam to Schiphol",
             [
-                (52.3768, 4.9006, 30),
-                (52.3783, 4.9049, 40),
-                (52.3830, 4.8933, 70),
-                (52.3931, 4.8756, 90),
-                (52.3919, 4.8434, 90),
-                (52.3807, 4.8447, 80),
-                (52.3727, 4.8421, 90),
-                (52.3525, 4.8425, 100),
-                (52.3402, 4.8408, 110),
-                (52.3381, 4.8128, 110),
-                (52.3279, 4.7784, 110),
-                (52.3078, 4.7471, 90),
-                (52.3090, 4.7635, 30),
+                (52.3780, 4.9003, 35),
+                (52.3621, 4.8879, 55),
+                (52.3480, 4.8750, 90),
+                (52.3380, 4.8450, 95),
+                (52.3280, 4.8100, 90),
+                (52.3200, 4.7850, 70),
+                (52.3090, 4.7649, 30),
             ]),
             BuildTrip(1, now.AddDays(-5).AddHours(9), "Amsterdam to Haarlem",
             [
-                (52.3676, 4.9041, 25),
-                (52.3625, 4.9071, 40),
-                (52.3501, 4.9162, 75),
-                (52.3461, 4.9281, 90),
-                (52.3383, 4.9392, 90),
-                (52.3375, 4.8908, 80),
-                (52.3381, 4.8471, 90),
-                (52.3609, 4.7328, 100),
-                (52.3725, 4.7111, 80),
-                (52.3831, 4.7081, 50),
-                (52.3871, 4.6458, 20),
+                (52.3676, 4.9041, 30),
+                (52.3700, 4.8700, 80),
+                (52.3740, 4.8100, 90),
+                (52.3780, 4.7700, 90),
+                (52.3830, 4.7200, 80),
+                (52.3860, 4.6850, 60),
+                (52.3874, 4.6462, 20),
             ]),
             BuildTrip(2, now.AddDays(-8).AddHours(14), "City drive",
             [
                 (52.3676, 4.9041, 25),
-                (52.3618, 4.9075, 30),
-                (52.3487, 4.9182, 50),
-                (52.3383, 4.9392, 55),
-                (52.3469, 4.9269, 50),
-                (52.3496, 4.9170, 45),
-                (52.3778, 4.9082, 35),
-                (52.3702, 4.8958, 30),
-                (52.3676, 4.9041, 20),
+                (52.3710, 4.9150, 30),
+                (52.3740, 4.9220, 25),
+                (52.3750, 4.9100, 20),
+                (52.3730, 4.8960, 25),
+                (52.3700, 4.8980, 20),
+                (52.3676, 4.9041, 10),
             ]),
             BuildTrip(3, now.AddDays(-12).AddHours(10), "Amsterdam to Utrecht",
             [
-                (52.3676, 4.9041, 30),
-                (52.3516, 4.9137, 55),
-                (52.3383, 4.9393, 90),
-                (52.3275, 4.9103, 90),
-                (52.2753, 4.9562, 110),
-                (52.2236, 4.9851, 120),
-                (52.1663, 4.9872, 120),
-                (52.1324, 5.0101, 110),
-                (52.1171, 5.0329, 100),
-                (52.1283, 5.0438, 90),
-                (52.1365, 5.0796, 90),
-                (52.1277, 5.1056, 90),
-                (52.1183, 5.1283, 70),
-                (52.1137, 5.1220, 60),
-                (52.0907, 5.1215, 30),
+                (52.3676, 4.9041, 40),
+                (52.3400, 4.9200, 100),
+                (52.3000, 4.9400, 110),
+                (52.2500, 4.9600, 120),
+                (52.2000, 4.9800, 120),
+                (52.1500, 5.0100, 110),
+                (52.1100, 5.0700, 90),
+                (52.0907, 5.1214, 30),
             ]),
             BuildTrip(4, now.AddDays(-18).AddHours(16), "Amsterdam to Almere",
             [
-                (52.3676, 4.9041, 30),
-                (52.3516, 4.9137, 60),
-                (52.3482, 4.9249, 90),
-                (52.3365, 4.9429, 90),
-                (52.3402, 4.9520, 90),
-                (52.3493, 4.9617, 100),
-                (52.3453, 4.9776, 110),
-                (52.3337, 4.9992, 110),
-                (52.3323, 5.0193, 110),
-                (52.3229, 5.0670, 110),
-                (52.3144, 5.1092, 100),
-                (52.3215, 5.1312, 90),
-                (52.3342, 5.1572, 90),
-                (52.3477, 5.1903, 80),
-                (52.3686, 5.2045, 60),
-                (52.3702, 5.2159, 30),
+                (52.3676, 4.9041, 35),
+                (52.3700, 4.9500, 90),
+                (52.3710, 5.0100, 100),
+                (52.3705, 5.0700, 100),
+                (52.3700, 5.1300, 90),
+                (52.3700, 5.1900, 60),
+                (52.3702, 5.2158, 25),
             ]),
             BuildTrip(5, now.AddDays(-3).AddHours(17), "Den Haag to Delft",
             [
-                (52.0707, 4.3008, 20),
-                (52.0674, 4.3034, 55),
-                (52.0641, 4.3107, 80),
-                (52.0505, 4.3137, 90),
-                (52.0346, 4.3288, 75),
-                (52.0291, 4.3372, 70),
-                (52.0227, 4.3471, 55),
-                (52.0117, 4.3573, 20),
+                (52.0705, 4.3007, 20),
+                (52.0600, 4.3100, 60),
+                (52.0450, 4.3250, 80),
+                (52.0300, 4.3400, 70),
+                (52.0116, 4.3571, 20),
             ]),
             BuildTrip(6, now.AddDays(-7).AddHours(8), "Zaandam to Amsterdam",
             [
-                (52.4379, 4.8250, 20),
-                (52.4296, 4.8254, 50),
-                (52.4282, 4.8358, 65),
-                (52.4310, 4.8552, 75),
-                (52.4316, 4.8629, 80),
-                (52.4265, 4.8758, 80),
-                (52.4221, 4.9044, 75),
-                (52.4183, 4.9129, 70),
-                (52.3840, 4.9108, 80),
-                (52.3743, 4.9122, 60),
+                (52.4379, 4.8254, 25),
+                (52.4280, 4.8400, 60),
+                (52.4150, 4.8550, 80),
+                (52.4000, 4.8750, 80),
+                (52.3820, 4.8900, 60),
                 (52.3676, 4.9041, 25),
             ]),
-            BuildTrip(7, now.AddDays(-20).AddHours(10), "Amsterdam to Amstelveen",
+            BuildTrip(7, now.AddDays(-14).AddHours(16).AddMinutes(30), "Gouda to Rotterdam",
             [
-                (52.3676, 4.9041, 25),
-                (52.3516, 4.9137, 55),
-                (52.3482, 4.9249, 80),
-                (52.3382, 4.9393, 80),
-                (52.3309, 4.9244, 80),
-                (52.3288, 4.9165, 80),
-                (52.3185, 4.9168, 80),
-                (52.3110, 4.9244, 80),
-                (52.2989, 4.9086, 70),
-                (52.2976, 4.8944, 60),
-                (52.3003, 4.8596, 25),
+                (52.0116, 4.7099, 25),
+                (52.0000, 4.6500, 80),
+                (51.9800, 4.5800, 100),
+                (51.9600, 4.5300, 100),
+                (51.9400, 4.5000, 80),
+                (51.9300, 4.4900, 60),
+                (51.9225, 4.4792, 25),
             ]),
-            BuildTrip(8, now.AddDays(-25).AddHours(14), "Utrecht to Amersfoort",
+            BuildTrip(8, now.AddDays(-20).AddHours(10), "Amsterdam to Amstelveen",
             [
-                (52.0907, 5.1215, 25),
-                (52.0931, 5.1367, 50),
-                (52.0930, 5.1452, 70),
-                (52.0917, 5.1621, 80),
-                (52.0924, 5.1803, 90),
-                (52.0931, 5.2011, 100),
-                (52.1038, 5.2363, 100),
-                (52.1093, 5.2733, 100),
-                (52.1154, 5.3030, 90),
-                (52.1229, 5.3404, 80),
-                (52.1281, 5.3635, 70),
+                (52.3676, 4.9041, 20),
+                (52.3500, 4.9000, 50),
+                (52.3300, 4.8900, 60),
+                (52.3150, 4.8750, 50),
+                (52.3006, 4.8597, 20),
+            ]),
+            BuildTrip(9, now.AddDays(-25).AddHours(14), "Utrecht to Amersfoort",
+            [
+                (52.0907, 5.1214, 30),
+                (52.1000, 5.1800, 90),
+                (52.1100, 5.2400, 100),
+                (52.1200, 5.3000, 100),
+                (52.1400, 5.3500, 80),
                 (52.1561, 5.3878, 25),
             ]),
-            BuildTrip(9, now.AddDays(-35).AddHours(11), "Tilburg to Breda",
+            BuildTrip(10, now.AddDays(-35).AddHours(11), "Tilburg to Breda",
             [
-                (51.5556, 5.0915, 25),
-                (51.5380, 5.0634, 80),
-                (51.5399, 5.0309, 90),
-                (51.5383, 4.9994, 100),
-                (51.5505, 4.9631, 100),
-                (51.5528, 4.9313, 100),
-                (51.5566, 4.9008, 100),
-                (51.5578, 4.8635, 90),
-                (51.5524, 4.8343, 80),
-                (51.5604, 4.8206, 60),
+                (51.5556, 5.0913, 25),
+                (51.5580, 5.0200, 80),
+                (51.5600, 4.9500, 100),
+                (51.5650, 4.8800, 100),
+                (51.5700, 4.8200, 80),
                 (51.5719, 4.7683, 25),
             ]),
         ];
