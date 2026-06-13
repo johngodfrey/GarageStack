@@ -37,20 +37,6 @@ const vehicleType = computed((): VehicleType | 'unknown' => {
 
 const isHev = computed(() => vehicleType.value === 'hev')
 
-const hiddenByTypeIds = computed((): Set<CardId> => {
-  if (vehicleType.value === 'unknown') return new Set()
-  const typeDefaults = defaultCards(vehicleType.value)
-  return new Set(typeDefaults.filter((c) => !c.visible).map((c) => c.id))
-})
-
-const editableCards = computed({
-  get: () => settings.cards.filter((c) => !hiddenByTypeIds.value.has(c.id)),
-  set: (newVal) => {
-    const restricted = settings.cards.filter((c) => hiddenByTypeIds.value.has(c.id))
-    settings.cards = [...newVal, ...restricted]
-  },
-})
-
 // Card IDs whose visibility differs between vehicle types (derived from defaultCards).
 // When the override changes these are reset to the new type's defaults.
 const TYPE_SPECIFIC_CARD_IDS = (() => {
@@ -183,22 +169,22 @@ async function refresh() {
   }
 }
 
-function handleVisibilityChange() {
-  if (document.visibilityState === 'visible') {
-    // Catch any updates missed while the tab was hidden (e.g. SignalR reconnect gap)
-    refresh()
-  }
+let interval: ReturnType<typeof setInterval>
+
+function resetInterval() {
+  clearInterval(interval)
+  interval = setInterval(refresh, 60_000)
 }
 
-function handleSwMessage(event: MessageEvent) {
-  if (event.data?.type === 'NOTIFICATION_RECEIVED') {
+function handleVisibilityChange() {
+  if (document.visibilityState === 'visible') {
     refresh()
+    resetInterval()
   }
 }
 
 onMounted(async () => {
   await refresh()
-
   // Hide cards that don't apply to the detected vehicle type so they don't
   // appear in the skeleton on subsequent loads
   if (vehicleType.value !== 'unknown') {
@@ -219,13 +205,13 @@ onMounted(async () => {
     const hidden = current.filter((c) => !c.visible)
     settings.cards = [...active, ...noData, ...hidden]
   }
+  interval = setInterval(refresh, 60_000)
   document.addEventListener('visibilitychange', handleVisibilityChange)
-  navigator.serviceWorker?.addEventListener('message', handleSwMessage)
 })
 
 onUnmounted(() => {
+  clearInterval(interval)
   document.removeEventListener('visibilitychange', handleVisibilityChange)
-  navigator.serviceWorker?.removeEventListener('message', handleSwMessage)
 })
 </script>
 
@@ -273,10 +259,9 @@ onUnmounted(() => {
             :lights-dipped-beam="status.lightsDippedBeam"
             :lights-side="status.lightsSide"
             :ev-soc-percent="status.evSocPercent"
-            :fuel-level-percent="vehicleType === 'bev' ? null : status.fuelLevelPercent"
+            :fuel-level-percent="status.fuelLevelPercent"
             :charger-connected="status.chargerConnected"
             :is-charging="status.isCharging"
-            :speed="status.speed"
           />
           <div v-else class="card-slot__placeholder card-slot__placeholder--chart">
             <font-awesome-icon icon="car-side" />
@@ -294,7 +279,7 @@ onUnmounted(() => {
       </div>
 
       <VueDraggable
-        v-model="editableCards"
+        v-model="settings.cards"
         class="status-grid status-grid--edit"
         :animation="200"
         ghost-class="card-slot--ghost"
@@ -302,7 +287,7 @@ onUnmounted(() => {
         handle=".card-slot__handle"
       >
         <div
-          v-for="card in editableCards"
+          v-for="card in settings.cards"
           :key="card.id"
           class="card-slot"
           :class="{ 'card-slot--hidden': !card.visible }"
@@ -372,10 +357,9 @@ onUnmounted(() => {
           :lights-dipped-beam="status.lightsDippedBeam"
           :lights-side="status.lightsSide"
           :ev-soc-percent="status.evSocPercent"
-          :fuel-level-percent="vehicleType === 'bev' ? null : status.fuelLevelPercent"
+          :fuel-level-percent="status.fuelLevelPercent"
           :charger-connected="status.chargerConnected"
           :is-charging="status.isCharging"
-          :speed="status.speed"
           class="mb-4"
         />
 

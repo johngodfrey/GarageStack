@@ -1,10 +1,8 @@
 using System.Text.Json;
 using GarageStack.Core.Interfaces;
 using GarageStack.Core.Models;
-using GarageStack.Data;
 using GarageStack.Worker.Services;
 using MQTTnet;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -161,7 +159,6 @@ public class MqttConsumerService(
         using var scope = scopeFactory.CreateScope();
         var vehicleRepoMain = scope.ServiceProvider.GetRequiredService<IVehicleRepository>();
         var telemetryRepo = scope.ServiceProvider.GetRequiredService<ITelemetryRepository>();
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         try
         {
@@ -187,14 +184,7 @@ public class MqttConsumerService(
                 _mergeState[vehicle.Id] = (newId, patch.RecordedAt);
             }
 
-            var tripCompleted = await CheckEngineStartAsync(vin, patch, ct);
-            if (tripCompleted && patch.VehicleId > 0)
-            {
-                var vid = patch.VehicleId.ToString();
-                await db.Database.ExecuteSqlInterpolatedAsync(
-                    $"SELECT pg_notify('trip_completed', {vid})", ct);
-                logger.LogInformation("Trip completed for vehicleId={VehicleId} - notifying SignalR clients", patch.VehicleId);
-            }
+            await CheckEngineStartAsync(vin, patch, ct);
         }
         catch (Exception ex)
         {
@@ -202,16 +192,16 @@ public class MqttConsumerService(
         }
     }
 
-    internal async Task<bool> CheckEngineStartAsync(string vin, TelemetrySnapshot snapshot, CancellationToken ct)
+    internal async Task CheckEngineStartAsync(string vin, TelemetrySnapshot snapshot, CancellationToken ct)
     {
-        if (snapshot.EngineRunning is null) return false;
+        if (snapshot.EngineRunning is null) return;
 
         if (_engineStateSeeded.Add(vin))
         {
             // First observation after startup: seed state without firing to avoid
             // false "engine started" alerts when the worker restarts while driving.
             _lastEngineRunning[vin] = snapshot.EngineRunning.Value;
-            return false;
+            return;
         }
 
         var wasRunning = _lastEngineRunning.TryGetValue(vin, out var prev) && prev;
@@ -220,15 +210,8 @@ public class MqttConsumerService(
         if (snapshot.EngineRunning.Value && !wasRunning)
         {
             logger.LogInformation("Engine started for VIN={Vin} - sending push notification", vin);
-            await pushSender.SendToAllAsync("Engine started", "Your car has been started.", ct, "engine-start", snapshot.VehicleId);
-            return false;
+            await pushSender.SendToAllAsync("Engine started", "Your car has been started.", ct, "engine-start");
         }
-
-        // Engine stopped: a trip just completed
-        if (!snapshot.EngineRunning.Value && wasRunning)
-            return true;
-
-        return false;
     }
 
     private async Task HandleHaDiscoveryAsync(string payload, CancellationToken ct)

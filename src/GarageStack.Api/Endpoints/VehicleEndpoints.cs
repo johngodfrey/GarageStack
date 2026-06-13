@@ -151,7 +151,6 @@ public static class VehicleEndpoints
                 "climate"             => "climate/remoteClimateState/set",
                 "climate-temperature" => "climate/remoteTemperature/set",
                 "rear-defroster"      => "climate/rearWindowDefrosterHeating/set",
-                "steering-wheel"      => "climate/steeringWheelHeating/set",
                 "seat-left"           => "climate/heatedSeatsFrontLeftLevel/set",
                 "seat-right"          => "climate/heatedSeatsFrontRightLevel/set",
                 "find-my-car"         => "location/findMyCar/set",
@@ -165,40 +164,12 @@ public static class VehicleEndpoints
             if (topicSuffix is null)
                 return Results.BadRequest(new { error = $"Unknown command '{command}'" });
 
-            var validationError = ValidateCommandValue(command, value);
-
-            if (validationError is not null)
-                return Results.BadRequest(new { error = validationError });
-
             var topic = $"saic/{vehicle.SaicUser}/vehicles/{vin}/{topicSuffix}";
             await mqtt.PublishAsync(topic, value, ct);
 
             return Results.Ok(new { topic, value });
         })
         .WithSummary("Send a command to the vehicle via MQTT");
-
-        group.MapGet("/{vin}/stats", async (
-            string vin,
-            string? from,
-            string? to,
-            ITelemetryRepository telemetry,
-            IVehicleRepository vehicles,
-            CancellationToken ct) =>
-        {
-            var resolved = await ResolveVehicleAsync(vin, vehicles, ct);
-            if (resolved.NotFound is not null) return resolved.NotFound;
-            var vehicle = resolved.Vehicle!;
-
-            var end = to is not null && DateTime.TryParse(to, out var parsedEnd) ? parsedEnd.ToUniversalTime() : DateTime.UtcNow;
-            var start = from is not null && DateTime.TryParse(from, out var parsedStart) ? parsedStart.ToUniversalTime() : end.AddDays(-30);
-            var maxRange = TimeSpan.FromDays(90);
-            if (end - start > maxRange)
-                start = end - maxRange;
-
-            var stats = await telemetry.GetAggregateStatsAsync(vehicle.Id, start, end, ct);
-            return Results.Ok(stats);
-        })
-        .WithSummary("Get aggregate statistics for a vehicle over a date range");
 
         group.MapGet("/{vin}/topics", async (string vin, IVehicleRepository vehicles, AppDbContext db, CancellationToken ct) =>
         {
@@ -215,7 +186,7 @@ public static class VehicleEndpoints
 
             return Results.Ok(topics);
         })
-        .WithSummary("Distinct raw MQTT topics seen for a vehicle (one entry per 15-second merge window; topics arriving mid-window are not recorded)");
+        .WithSummary("Distinct raw MQTT topics seen for a vehicle");
 
         var push = app.MapGroup("/api/push")
             .WithTags("Push Notifications")
@@ -261,9 +232,9 @@ public static class VehicleEndpoints
         })
         .WithSummary("Register a browser push subscription");
 
-        push.MapPost("/unsubscribe", async (PushUnsubscribeRequest req, AppDbContext db, CancellationToken ct) =>
+        push.MapDelete("/unsubscribe", async (string endpoint, AppDbContext db, CancellationToken ct) =>
         {
-            var sub = await db.PushSubscriptions.FirstOrDefaultAsync(s => s.Endpoint == req.Endpoint, ct);
+            var sub = await db.PushSubscriptions.FirstOrDefaultAsync(s => s.Endpoint == endpoint, ct);
             if (sub is not null)
             {
                 db.PushSubscriptions.Remove(sub);
@@ -275,33 +246,7 @@ public static class VehicleEndpoints
 
         return app;
     }
-
-    internal static string? ValidateCommandValue(string command, string value) => command switch
-    {
-        "climate" or "rear-defroster" or "steering-wheel" =>
-            value is "on" or "off" ? null : $"'{command}' value must be 'on' or 'off'",
-        "climate-temperature" =>
-            int.TryParse(value, out var temp) && temp is >= 16 and <= 28
-                ? null
-                : "'climate-temperature' value must be an integer between 16 and 28",
-        "seat-left" or "seat-right" =>
-            int.TryParse(value, out var seat) && seat is >= 0 and <= 3
-                ? null
-                : $"'{command}' value must be an integer between 0 and 3",
-        "find-my-car" =>
-            value is "activate" or "stop" ? null : "'find-my-car' value must be 'activate' or 'stop'",
-        "charge-limit" =>
-            int.TryParse(value, out var limit) && limit is >= 1 and <= 100
-                ? null
-                : "'charge-limit' value must be an integer between 1 and 100",
-        "lock" =>
-            value is "True" or "False" ? null : "'lock' value must be 'True' or 'False'",
-        "refresh" =>
-            value == "force" ? null : "'refresh' value must be 'force'",
-        _ => null  // scheduled-charging: accept any non-empty string
-    };
 }
 
 public record PushSubscribeRequest(string Endpoint, string P256DhKey, string AuthKey);
-public record PushUnsubscribeRequest(string Endpoint);
 public record VehicleListItemDto(int Id, string Vin, string? Model, string? Series, DateTime CreatedAt);

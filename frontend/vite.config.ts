@@ -8,7 +8,6 @@ export default defineConfig({
     vue(),
     VitePWA({
       registerType: 'autoUpdate',
-      injectRegister: 'script-defer',
       strategies: 'injectManifest',
       srcDir: 'src',
       filename: 'sw.ts',
@@ -20,22 +19,14 @@ export default defineConfig({
         background_color: '#0f1117',
         display: 'standalone',
         icons: [
-          { src: 'pwa-64x64.png', sizes: '64x64', type: 'image/png', purpose: 'any' },
-          { src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png', purpose: 'any maskable' },
-          { src: 'pwa-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
-        ],
-        shortcuts: [
+          { src: 'pwa-64x64.png', sizes: '64x64', type: 'image/png' },
+          { src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png' },
+          { src: 'pwa-512x512.png', sizes: '512x512', type: 'image/png' },
           {
-            name: 'Map',
-            short_name: 'Map',
-            url: '/map',
-            icons: [{ src: 'shortcut-map-96x96.png', sizes: '96x96', type: 'image/png' }],
-          },
-          {
-            name: 'Statistics',
-            short_name: 'Stats',
-            url: '/statistics',
-            icons: [{ src: 'shortcut-stats-96x96.png', sizes: '96x96', type: 'image/png' }],
+            src: 'maskable-icon-512x512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'maskable',
           },
         ],
         screenshots: [
@@ -46,31 +37,7 @@ export default defineConfig({
             form_factor: 'narrow',
           },
           {
-            src: 'screenshot-mobile-map.webp',
-            sizes: '375x667',
-            type: 'image/webp',
-            form_factor: 'narrow',
-          },
-          {
-            src: 'screenshot-mobile-statistics.webp',
-            sizes: '375x667',
-            type: 'image/webp',
-            form_factor: 'narrow',
-          },
-          {
             src: 'screenshot-desktop-home.webp',
-            sizes: '1269x1038',
-            type: 'image/webp',
-            form_factor: 'wide',
-          },
-          {
-            src: 'screenshot-desktop-map.webp',
-            sizes: '1269x1038',
-            type: 'image/webp',
-            form_factor: 'wide',
-          },
-          {
-            src: 'screenshot-desktop-statistics.webp',
             sizes: '1269x1038',
             type: 'image/webp',
             form_factor: 'wide',
@@ -85,14 +52,10 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': 'http://127.0.0.1:5000',
-      '/hubs': {
-        target: 'http://127.0.0.1:5000',
-        ws: true,
-      },
     },
   },
   optimizeDeps: {
-    include: ['leaflet', 'leaflet.heat', 'leaflet.markercluster'],
+    include: ['leaflet', 'leaflet.heat'],
   },
   resolve: {
     alias: {

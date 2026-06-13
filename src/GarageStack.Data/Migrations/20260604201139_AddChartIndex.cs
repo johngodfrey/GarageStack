@@ -14,7 +14,7 @@ namespace GarageStack.Data.Migrations
             // IX_TelemetrySnapshots_VehicleId_RecordedAt index is kept for
             // GetLatestAsync / GetMergedLatestAsync which have no field filter.
             migrationBuilder.Sql("""
-                CREATE INDEX "IX_TelemetrySnapshots_VehicleId_RecordedAt_Chart"
+                CREATE INDEX IF NOT EXISTS "IX_TelemetrySnapshots_VehicleId_RecordedAt_Chart"
                     ON "TelemetrySnapshots" ("VehicleId", "RecordedAt")
                     WHERE "FuelLevelPercent"        IS NOT NULL
                        OR "EvSocPercent"            IS NOT NULL

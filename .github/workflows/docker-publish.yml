@@ -1,7 +1,6 @@
 name: Build and publish Docker images
 
 on:
-  workflow_dispatch:
   push:
     branches:
       - main
@@ -13,7 +12,6 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   build:
@@ -53,7 +51,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -102,8 +100,6 @@ jobs:
           echo "Resolved MinVer version: $VERSION"
 
       - name: Log in to Docker Hub (avoids pull rate limits for moby/buildkit)
-        if: github.event_name != 'pull_request'
-        continue-on-error: true
         uses: docker/login-action@v4
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -146,7 +142,7 @@ jobs:
             APP_VERSION=${{ steps.minver.outputs.version }}
           # Each image gets its own GHA cache scope
           cache-from: type=gha,scope=${{ matrix.label }}
-          cache-to: type=gha,scope=${{ matrix.label }},mode=min,ignore-error=true
+          cache-to: type=gha,scope=${{ matrix.label }},mode=min
 
       - name: Sign image with Cosign
         if: github.event_name != 'pull_request'

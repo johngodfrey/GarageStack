@@ -147,7 +147,6 @@ const supportsExternalCharge = computed(
       :heated-seat-front-left="status.heatedSeatFrontLeft"
       :heated-seat-front-right="status.heatedSeatFrontRight"
       :rear-window-defroster="status.rearWindowDefroster"
-      :steering-wheel-heating="status.steeringWheelHeating"
     />
 
     <!-- hvBattery -->

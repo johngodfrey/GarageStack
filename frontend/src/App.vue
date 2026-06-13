@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch, onBeforeUnmount } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useSettingsStore } from '@/stores/settings'
@@ -9,10 +9,7 @@ import AppFooter from '@/components/AppFooter.vue'
 import NotificationPanel from '@/components/NotificationPanel.vue'
 import DemoBanner from '@/components/DemoBanner.vue'
 import DemoControlPanel from '@/components/DemoControlPanel.vue'
-import PwaInstallModal from '@/components/PwaInstallModal.vue'
-import { useNotifications, prependNotification } from '@/composables/useNotifications'
-import { useSignalR } from '@/composables/useSignalR'
-import { useFavicon } from '@/composables/useFavicon'
+import { useNotifications } from '@/composables/useNotifications'
 
 const isDemoMode = import.meta.env.VITE_DEMO_MODE === 'true'
 const demoControlsOpen = ref(false)
@@ -61,39 +58,6 @@ const {
 } = useNotifications()
 
 const carModel = computed(() => vehicleStore.vehicles[0]?.model ?? null)
-const vehicleId = computed(() => vehicleStore.vehicles[0]?.id ?? null)
-
-const availabilityToast = ref<'online' | 'offline' | null>(null)
-let toastTimer: ReturnType<typeof setTimeout> | null = null
-
-watch(
-  () => vehicleStore.currentStatus?.isAvailable,
-  (now, prev) => {
-    if (prev === undefined || prev === null || now === null || now === undefined) return
-    if (now === prev) return
-    if (toastTimer) clearTimeout(toastTimer)
-    availabilityToast.value = now ? 'online' : 'offline'
-    toastTimer = setTimeout(() => {
-      availabilityToast.value = null
-    }, 5000)
-  },
-)
-
-onBeforeUnmount(() => {
-  if (toastTimer) clearTimeout(toastTimer)
-})
-
-useFavicon()
-
-const { start: startSignalR, stop: stopSignalR } = useSignalR({
-  onTelemetryUpdated: (snapshot) => vehicleStore.applyLiveStatus(snapshot),
-  onNotificationReceived: (notification) => prependNotification(notification),
-  onTripCompleted: () => vehicleStore.notifyTripCompleted(),
-})
-
-watch(vehicleId, (id) => {
-  if (id) startSignalR(id)
-})
 
 const isInitialLoading = computed(() => vehicleStore.loading && !vehicleStore.currentStatus)
 
@@ -126,7 +90,6 @@ function closeMenu() {
 }
 
 async function logout() {
-  await stopSignalR()
   await auth.logout()
   await router.replace({ name: 'login' })
 }
@@ -148,7 +111,7 @@ watch(
 <template>
   <RouterView v-if="isLoginRoute" />
 
-  <div v-else class="app-layout" :class="{ 'has-demo-banner': isDemoMode }">
+  <div v-else class="app-layout">
     <DemoBanner v-if="isDemoMode" />
 
     <!-- Mobile topbar -->
@@ -217,16 +180,11 @@ watch(
               <span class="skeleton skeleton--text skeleton--text-md" />
             </template>
             <template v-else>
-              <font-awesome-icon icon="wifi" aria-hidden="true" />
-              <span class="sidebar-footer__text" :title="onlineStatusText ?? undefined">{{
-                onlineStatusText
+              <font-awesome-icon icon="wifi" />
+              <span class="sidebar-footer__text">{{ onlineStatusText }}</span>
+              <span v-if="onlineStatusTime" class="sidebar-online-status__time">{{
+                onlineStatusTime
               }}</span>
-              <span
-                v-if="onlineStatusTime"
-                class="sidebar-online-status__time"
-                :title="onlineStatusTime"
-                >{{ onlineStatusTime }}</span
-              >
             </template>
           </div>
           <div v-if="isInitialLoading || lastFetched" class="sidebar-timestamp">
@@ -235,10 +193,8 @@ watch(
               <span class="skeleton skeleton--text skeleton--text-sm" />
             </template>
             <template v-else>
-              <font-awesome-icon icon="rotate" :spin="vehicleStore.loading" aria-hidden="true" />
-              <span class="sidebar-footer__text" :title="`${t('common.fetched')} ${lastFetched}`"
-                >{{ t('common.fetched') }} {{ lastFetched }}</span
-              >
+              <font-awesome-icon icon="rotate" :spin="vehicleStore.loading" />
+              <span class="sidebar-footer__text">{{ t('common.fetched') }} {{ lastFetched }}</span>
             </template>
           </div>
           <div v-if="isInitialLoading || lastRecorded" class="sidebar-timestamp">
@@ -247,15 +203,15 @@ watch(
               <span class="skeleton skeleton--text skeleton--text-lg" />
             </template>
             <template v-else>
-              <font-awesome-icon icon="clock" aria-hidden="true" />
-              <span class="sidebar-footer__text" :title="`${t('common.recorded')} ${lastRecorded}`"
+              <font-awesome-icon icon="clock" />
+              <span class="sidebar-footer__text"
                 >{{ t('common.recorded') }} {{ lastRecorded }}</span
               >
             </template>
           </div>
           <div class="sidebar-user">
-            <font-awesome-icon icon="user" aria-hidden="true" />
-            <span class="sidebar-user__email" :title="auth.username">{{ auth.username }}</span>
+            <font-awesome-icon icon="user" />
+            <span class="sidebar-user__email">{{ auth.username }}</span>
           </div>
           <button
             v-if="isDemoMode"
@@ -284,19 +240,6 @@ watch(
       </main>
     </div>
 
-    <Transition name="availability-toast">
-      <div
-        v-if="availabilityToast"
-        class="availability-toast"
-        :class="`availability-toast--${availabilityToast}`"
-      >
-        <font-awesome-icon
-          :icon="availabilityToast === 'online' ? 'wifi' : 'triangle-exclamation'"
-        />
-        {{ availabilityToast === 'online' ? t('vehicle.wentOnline') : t('vehicle.wentOffline') }}
-      </div>
-    </Transition>
-
     <AppFooter />
 
     <NotificationPanel
@@ -311,6 +254,5 @@ watch(
     />
 
     <DemoControlPanel v-if="isDemoMode" :open="demoControlsOpen" />
-    <PwaInstallModal />
   </div>
 </template>

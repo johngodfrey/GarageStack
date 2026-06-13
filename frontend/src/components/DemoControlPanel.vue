@@ -232,14 +232,7 @@ async function setLights(mode: 'off' | 'side' | 'dipped' | 'main') {
       <div class="demo-panel-section">
         <div class="demo-panel-section-label">{{ t('demo.soc') }}</div>
         <div class="demo-panel-range">
-          <input
-            v-model.number="socValue"
-            type="range"
-            min="10"
-            max="100"
-            step="1"
-            :aria-label="t('demo.soc')"
-          />
+          <input v-model.number="socValue" type="range" min="10" max="100" step="1" />
           <span>{{ socValue }}%</span>
           <button class="demo-toggle-btn" @click="applySoc">OK</button>
         </div>
@@ -248,14 +241,7 @@ async function setLights(mode: 'off' | 'side' | 'dipped' | 'main') {
       <div class="demo-panel-section">
         <div class="demo-panel-section-label">{{ t('demo.speed') }}</div>
         <div class="demo-panel-range">
-          <input
-            v-model.number="speedValue"
-            type="range"
-            min="0"
-            max="200"
-            step="1"
-            :aria-label="t('demo.speed')"
-          />
+          <input v-model.number="speedValue" type="range" min="0" max="200" step="1" />
           <span>{{ speedValue }} km/h</span>
           <button class="demo-toggle-btn" @click="applySpeed">OK</button>
         </div>

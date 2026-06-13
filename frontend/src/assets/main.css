@@ -16,7 +16,6 @@
   --topbar-height: 56px;
   --footer-height: 48px;
   --radius: 10px;
-  --demo-banner-height: 2.2rem;
 }
 
 [data-theme='light'] {
@@ -314,7 +313,7 @@ body,
 
 .status-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 1rem;
 }
 
@@ -354,7 +353,6 @@ body,
   display: flex;
   flex-direction: column;
   gap: 0.2rem;
-  flex: 1;
   min-width: 0;
   overflow: hidden;
 }
@@ -618,54 +616,6 @@ body,
 
 /* ── Tyre diagram ─────────────────────────────────────────── */
 
-/* ── Road driving animation ───────────────────────────── */
-
-.road-surface {
-  fill: #2a2a2a;
-  opacity: 0.5;
-}
-
-[data-theme='light'] .road-surface {
-  fill: #a0a0a0;
-  opacity: 0.35;
-}
-
-.road-edge {
-  stroke: rgba(255, 255, 255, 0.35);
-  stroke-width: 1.5;
-}
-
-[data-theme='light'] .road-edge {
-  stroke: rgba(255, 255, 255, 0.7);
-}
-
-.road-center-dash {
-  stroke: rgba(255, 255, 255, 0.6);
-  stroke-width: 2.5;
-  stroke-dasharray: 30 15;
-  animation: road-scroll 1s linear infinite;
-}
-
-[data-theme='light'] .road-center-dash {
-  stroke: rgba(255, 255, 255, 0.85);
-}
-
-@keyframes road-scroll {
-  from {
-    stroke-dashoffset: 0;
-  }
-  to {
-    stroke-dashoffset: -45;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .road-center-dash {
-    animation: none;
-    stroke-dashoffset: 0;
-  }
-}
-
 .tyre-diagram {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
@@ -691,11 +641,11 @@ body,
   justify-content: center;
 }
 
-/* SVG viewBox is 420×480 (widened for 3-lane road); max-width keeps it on small screens */
+/* SVG viewBox is 340×480; keep it narrow enough to fit on iPhone SE (375px) */
 .tyre-car-wrap {
   position: relative;
   display: inline-block;
-  width: 300px;
+  width: 220px;
   max-width: 100%;
 }
 
@@ -754,9 +704,8 @@ body,
 /* ── Pressure label positioning ──────────────────────────── */
 /*
   Labels float at the outer endpoints of the indicator lines.
-  SVG viewBox -40 0 420 480; line ends at FL(72,131) FR(268,131) RL(72,341) RR(268,341).
-  CSS % = (svg_x + 40) / 420: x=72→26.7%  x=268→73.3%
-  y unchanged: 131/480=27.3%  341/480=71%
+  SVG viewBox 340×480; line ends at FL(72,68) FR(268,68) RL(72,404) RR(268,404).
+  As % of container: x=72/340=21.2% x=268/340=78.8% y=68/480=14.2% y=404/480=84.2%
 */
 
 .tyre-labels {
@@ -778,22 +727,22 @@ body,
 
 .tyre-label--fl {
   top: 27.3%;
-  left: 26.7%;
+  left: 21.2%;
   transform: translate(-100%, -50%);
 }
 .tyre-label--fr {
   top: 27.3%;
-  left: 73.3%;
+  left: 78.8%;
   transform: translate(0%, -50%);
 }
 .tyre-label--rl {
   top: 71%;
-  left: 26.7%;
+  left: 21.2%;
   transform: translate(-100%, -50%);
 }
 .tyre-label--rr {
   top: 71%;
-  left: 73.3%;
+  left: 78.8%;
   transform: translate(0%, -50%);
 }
 
@@ -998,10 +947,10 @@ body,
 /* ── Open panel icon badges ───────────────────────────────── */
 /*
   Circular warning badges floating at each panel location.
-  Positions derived from SVG viewBox -40 0 420 480; CSS % = (svg_x + 40) / 420.
-  Left doors  x≈117 → 37.4%, right doors x≈223 → 62.6%
-  Bonnet/Trunk x=170 → 50%
-  Top values are y-based and unchanged.
+  Positions derived from SVG viewBox 340×480 mapped to % of container.
+  Left doors  at x≈80/340 =23.5%, right at x≈260/340=76.5%
+  FL/FR doors top≈39%, RL/RR doors top≈50%
+  Bonnet top≈20%, Trunk top≈79%
 */
 
 .car-badge {
@@ -1032,22 +981,22 @@ body,
 }
 .car-badge--door-fl {
   top: 45%;
-  left: 37.4%;
+  left: 34.5%;
   transform: translate(-50%, -50%);
 }
 .car-badge--door-fr {
   top: 45%;
-  left: 62.6%;
+  left: 65.5%;
   transform: translate(-50%, -50%);
 }
 .car-badge--door-rl {
   top: 56%;
-  left: 37.4%;
+  left: 34.5%;
   transform: translate(-50%, -50%);
 }
 .car-badge--door-rr {
   top: 56%;
-  left: 62.6%;
+  left: 65.5%;
   transform: translate(-50%, -50%);
 }
 
@@ -1079,6 +1028,268 @@ body,
 
 .vehicle-state-legend__item--connected {
   color: var(--color-primary-light);
+}
+
+/* ── Map ──────────────────────────────────────────────────── */
+
+.view-container--map {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.view-container--map .view-header {
+  flex-shrink: 0;
+}
+
+.map-layout {
+  display: flex;
+  gap: 1rem;
+  flex: 1;
+  min-height: 0;
+}
+
+.map-wrapper {
+  flex: 1;
+  min-height: 0;
+  border-radius: var(--radius);
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+}
+
+.trip-sidebar {
+  width: 240px;
+  flex-shrink: 0;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 1rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.trip-sidebar__title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.trip-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.trip-list__item {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.6rem 1rem;
+  margin: 0 -1rem;
+  border-left: 2px solid transparent;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+
+.trip-list__item:hover {
+  background: var(--color-surface-2);
+}
+
+.trip-list__item--active {
+  background: var(--color-surface-2);
+  border-left-color: var(--color-primary);
+}
+
+.trip-list__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-top: 4px;
+}
+
+.trip-list__dot--0 {
+  background: #3b82f6;
+}
+.trip-list__dot--1 {
+  background: #10b981;
+}
+.trip-list__dot--2 {
+  background: #f59e0b;
+}
+.trip-list__dot--3 {
+  background: #ef4444;
+}
+.trip-list__dot--4 {
+  background: #8b5cf6;
+}
+.trip-list__dot--5 {
+  background: #ec4899;
+}
+
+.map-canvas {
+  height: 100%;
+}
+
+.trip-list__info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.trip-list__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.trip-list__name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trip-list__time {
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+
+.trip-list__meta {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.paginator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding-top: 0.25rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.paginator--top {
+  border-top: none;
+  border-bottom: 1px solid var(--color-border);
+  padding-top: 0;
+  padding-bottom: 0.25rem;
+}
+
+.paginator__btn {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  justify-content: center;
+}
+
+.paginator__input {
+  width: 2.5rem;
+  text-align: center;
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  color: var(--color-text);
+  font-size: 0.78rem;
+  padding: 0.15rem 0;
+  -moz-appearance: textfield;
+  font-family: inherit;
+}
+
+.paginator__input::-webkit-inner-spin-button,
+.paginator__input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.paginator__input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.paginator__sep {
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+}
+
+.map-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.map-controls__label {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+/* ── Control panel ────────────────────────────────────────── */
+
+.control-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1rem;
+}
+
+.control-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+}
+
+.control-card__title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.control-card__actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.control-card__result {
+  margin-top: 0.75rem;
+  font-size: 0.8rem;
+}
+
+/* ── Chart ────────────────────────────────────────────────── */
+
+.chart-container {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+}
+
+.chart-container h2 {
+  font-size: 1rem;
+  margin-bottom: 1rem;
+  color: var(--color-text-muted);
 }
 
 /* ── Buttons ──────────────────────────────────────────────── */
@@ -1297,12 +1508,6 @@ body,
   font-weight: 500;
 }
 
-.settings-toggle__icon {
-  width: 0.85em;
-  margin-right: 0.35rem;
-  color: var(--color-text-muted);
-}
-
 .settings-toggle__desc {
   font-size: 0.78rem;
   color: var(--color-text-muted);
@@ -1463,7 +1668,6 @@ body,
 .card-info-wrap {
   position: relative;
   overflow: visible;
-  min-width: 0;
 }
 
 .card-info-btn {
@@ -1556,7 +1760,6 @@ body,
 
 .card-slot {
   position: relative;
-  min-width: 0;
   animation: card-wiggle 0.22s ease-in-out infinite alternate;
   cursor: default;
   touch-action: auto;
@@ -1701,26 +1904,23 @@ body,
 
 @keyframes skeleton-shimmer {
   0% {
-    transform: translateX(-100%);
+    background-position: 100% 0;
   }
   100% {
-    transform: translateX(100%);
+    background-position: 0% 0;
   }
 }
 
 .skeleton {
   display: inline-block;
   border-radius: 4px;
-  background: var(--color-surface-2);
-  position: relative;
-  overflow: hidden;
-}
-
-.skeleton::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(90deg, transparent 0%, var(--color-border) 50%, transparent 100%);
+  background: linear-gradient(
+    90deg,
+    var(--color-surface-2) 25%,
+    var(--color-border) 50%,
+    var(--color-surface-2) 75%
+  );
+  background-size: 400% 100%;
   animation: skeleton-shimmer 1.5s linear infinite;
 }
 
@@ -1746,12 +1946,6 @@ body,
 
 .skeleton--text-lg {
   max-width: 78%;
-}
-
-.skeleton--trip-time {
-  width: 3rem;
-  height: 1.2em;
-  flex-shrink: 0;
 }
 
 /* ── App footer ───────────────────────────────────────────── */
@@ -1844,19 +2038,6 @@ body,
     margin-top: var(--topbar-height);
   }
 
-  /* When demo banner is present, fix it below the topbar and extend the body offset */
-  .demo-banner {
-    position: fixed;
-    top: var(--topbar-height);
-    left: 0;
-    right: 0;
-    z-index: 199;
-  }
-
-  .has-demo-banner .app-body {
-    margin-top: calc(var(--topbar-height) + var(--demo-banner-height));
-  }
-
   .sidebar-backdrop {
     display: block;
   }
@@ -1897,10 +2078,10 @@ body,
   }
 
   .card-info-btn {
-    top: -6px;
-    right: -6px;
-    width: 24px;
-    height: 24px;
+    top: -5px;
+    right: -5px;
+    width: 22px;
+    height: 22px;
     font-size: 0.6rem;
   }
 
@@ -1916,6 +2097,29 @@ body,
 
   .status-card__value {
     font-size: 0.95rem;
+  }
+
+  /* Map: column direction on mobile (base already sets flex: 1 / min-height: 0) */
+  .map-layout {
+    flex-direction: column;
+  }
+
+  .trip-sidebar {
+    width: 100%;
+    max-height: 240px;
+    flex-shrink: 0;
+  }
+
+  /* Map wrapper fills whatever is left after the sidebar */
+  .map-wrapper {
+    flex: 1;
+    min-height: 200px;
+    height: auto;
+  }
+
+  .map-controls {
+    flex-wrap: wrap;
+    gap: 0.4rem;
   }
 }
 
@@ -1935,38 +2139,166 @@ body,
   }
 }
 
-/* ── Tablet (600–1023px) ──────────────────────────────────── */
+/* ── Tablet (768–1023px) ──────────────────────────────────── */
 
-@media (min-width: 600px) and (max-width: 1023px) {
+@media (min-width: 768px) and (max-width: 1023px) {
   .main-content {
     padding: 1.5rem;
   }
 
   .status-grid {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   }
 }
 
-/* ── Large desktop (1440px+) ──────────────────────────────── */
+/* ── Login page ───────────────────────────────────────────── */
 
-@media (min-width: 1440px) {
-  .status-grid {
-    grid-template-columns: repeat(6, 1fr);
-  }
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: var(--color-bg);
 }
 
-/* ── Full-HD and above (1920px+) ──────────────────────────── */
-
-@media (min-width: 1920px) {
-  .status-grid {
-    grid-template-columns: repeat(8, 1fr);
-  }
+.login-card {
+  width: 100%;
+  max-width: 380px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 2rem 2rem 1.75rem;
 }
 
-@media (min-width: 2500px) {
-  .status-grid {
-    grid-template-columns: repeat(12, 1fr);
-  }
+.login-card__brand {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.login-card__brand-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius);
+  background: var(--color-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.login-card__title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--color-text);
+  line-height: 1.2;
+}
+
+.login-card__subtitle {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  margin-top: 0.15rem;
+}
+
+.login-card__form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* ── Login form fields ────────────────────────────────────── */
+
+.login-field {
+  display: block;
+}
+
+.login-field__input-wrap {
+  position: relative;
+}
+
+.login-field__icon {
+  position: absolute;
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  pointer-events: none;
+}
+
+.login-field__input {
+  width: 100%;
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  color: var(--color-text);
+  font-size: 0.9rem;
+  padding: 0.65rem 0.75rem 0.65rem 2.25rem;
+  transition: border-color 0.15s;
+  font-family: inherit;
+}
+
+.login-field__input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.login-field__input::placeholder {
+  color: var(--color-text-muted);
+  opacity: 0.6;
+}
+
+/* Preserve dark theme when the browser auto-fills credentials */
+.login-field__input:-webkit-autofill,
+.login-field__input:-webkit-autofill:hover,
+.login-field__input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px var(--color-surface-2) inset !important;
+  -webkit-text-fill-color: var(--color-text) !important;
+  caret-color: var(--color-text);
+  border-color: var(--color-border) !important;
+}
+
+.login-field__input:-webkit-autofill:focus {
+  border-color: var(--color-primary) !important;
+}
+
+/* ── Login remember toggle ────────────────────────────────── */
+
+.login-remember {
+  padding: 0.25rem 0;
+  border-bottom: none;
+}
+
+.login-remember .settings-toggle__label {
+  color: var(--color-text-muted);
+}
+
+/* ── Login error + submit ─────────────────────────────────── */
+
+.login-error {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 6px;
+  color: var(--color-danger-text);
+  font-size: 0.83rem;
+  padding: 0.55rem 0.75rem;
+}
+
+.login-submit {
+  width: 100%;
+  justify-content: center;
+  padding: 0.65rem 1rem;
+  font-size: 0.9rem;
+  margin-top: 0.25rem;
 }
 
 /* ── Sidebar footer (user + logout) ──────────────────────── */
@@ -2649,44 +2981,4 @@ body,
     bottom: 4.5rem;
     width: auto;
   }
-}
-
-.availability-toast {
-  position: fixed;
-  bottom: 5rem;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.6rem 1.1rem;
-  border-radius: 6px;
-  font-size: 0.875rem;
-  font-weight: 500;
-  z-index: 2000;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
-  pointer-events: none;
-}
-
-.availability-toast--online {
-  background: var(--color-success);
-  color: #fff;
-}
-
-.availability-toast--offline {
-  background: var(--color-danger);
-  color: #fff;
-}
-
-.availability-toast-enter-active,
-.availability-toast-leave-active {
-  transition:
-    opacity 0.2s ease,
-    transform 0.2s ease;
-}
-
-.availability-toast-enter-from,
-.availability-toast-leave-to {
-  opacity: 0;
-  transform: translateX(-50%) translateY(8px);
 }

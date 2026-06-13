@@ -47,16 +47,16 @@ FROM python:3.14-slim
 
 ARG DEBIAN_FRONTEND=noninteractive
 
-# bash          -- required by entrypoint.sh and dotnet-install.sh (slim images ship dash only)
+# bash  -- required by entrypoint.sh and dotnet-install.sh (slim images ship dash only)
 # libgssapi-krb5-2 -- required by the .NET runtime
-# libicu-dev    -- required by .NET globalization (UseRequestLocalization uses CultureInfo)
+# libicu76 -- required by ASP.NET Core localization / CultureInfo("en", "nl")
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
     apt-get update \
     && apt-get install -y --no-install-recommends \
         bash curl gnupg ca-certificates gosu supervisor \
         nginx mosquitto mosquitto-clients \
-        libgssapi-krb5-2 libicu-dev \
+        libgssapi-krb5-2 libicu76 \
     && rm -rf /var/lib/apt/lists/*
 
 # .NET 10 ASP.NET Core runtime -- installed via the official script, no apt repo needed.

@@ -8,9 +8,7 @@ precacheAndRoute(self.__WB_MANIFEST)
 
 // Activate the new SW immediately instead of waiting for all tabs to close
 self.addEventListener('install', () => self.skipWaiting())
-self.addEventListener('activate', (event) => {
-  event.waitUntil(self.registration.navigationPreload?.enable() ?? Promise.resolve())
-})
+self.addEventListener('activate', (event) => event.waitUntil(self.clients.claim()))
 
 self.addEventListener('push', (event) => {
   if (!event.data) return
@@ -37,7 +35,7 @@ self.addEventListener('push', (event) => {
     self.registration.showNotification(title, options).then(() =>
       self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
         for (const client of clientList) {
-          client.postMessage({ type: 'NOTIFICATION_RECEIVED', category: payload.category })
+          client.postMessage({ type: 'NOTIFICATION_RECEIVED' })
         }
       }),
     ),

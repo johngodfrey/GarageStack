@@ -2,7 +2,6 @@ using System.Globalization;
 using System.Text.Json.Serialization;
 using GarageStack.Api;
 using GarageStack.Api.Endpoints;
-using GarageStack.Api.Hubs;
 using GarageStack.Api.Services;
 using GarageStack.Core.Interfaces;
 using GarageStack.Data;
@@ -27,11 +26,6 @@ Log.Logger = new LoggerConfiguration()
 try
 {
     var builder = WebApplication.CreateBuilder(args);
-
-    // User secrets are loaded automatically in Development; also load them in Demo so local
-    // dev secrets (e.g. OpenChargeMap:ApiKey) are available when running start-demo.ps1.
-    if (builder.Environment.IsEnvironment("Demo"))
-        builder.Configuration.AddUserSecrets<Program>(optional: true);
 
     var debugLogs = string.Equals(builder.Configuration["DEBUG_LOGS"], "true", StringComparison.OrdinalIgnoreCase);
 
@@ -68,21 +62,8 @@ try
         builder.Services.AddSingleton<MqttPublisher>();
         builder.Services.AddSingleton<IMqttPublisher>(sp => sp.GetRequiredService<MqttPublisher>());
         builder.Services.AddHostedService(sp => sp.GetRequiredService<MqttPublisher>());
-        builder.Services.AddHostedService<TelemetryNotificationService>();
     }
-    builder.Services.AddOpenApi(opts =>
-    {
-        opts.AddDocumentTransformer((doc, _, _) =>
-        {
-            doc.Info = new()
-            {
-                Title = "GarageStack API",
-                Version = "v1",
-                Description = "REST API for GarageStack -- vehicle telemetry, statistics, and notifications.",
-            };
-            return Task.CompletedTask;
-        });
-    });
+    builder.Services.AddOpenApi();
     builder.Services.ConfigureHttpJsonOptions(opts =>
     {
         opts.SerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
@@ -95,15 +76,6 @@ try
     if (jwtSecretBytes.Length < 32)
         throw new InvalidOperationException("Jwt:Secret must be at least 32 bytes.");
 
-    builder.Services.AddMemoryCache();
-    builder.Services.AddHttpClient("ocm", client =>
-    {
-        client.DefaultRequestHeaders.UserAgent.ParseAdd("GarageStack/1.0");
-    });
-    builder.Services.AddScoped<ChargingStationService>();
-
-    builder.Services.AddSignalR();
-
     builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         .AddJwtBearer(options =>
         {
@@ -111,16 +83,6 @@ try
             {
                 OnMessageReceived = ctx =>
                 {
-                    // SignalR WebSocket connections send the token via query string
-                    if (ctx.Request.Path.StartsWithSegments("/hubs/telemetry"))
-                    {
-                        var qs = ctx.Request.Query["access_token"].ToString();
-                        if (!string.IsNullOrEmpty(qs))
-                        {
-                            ctx.Token = qs;
-                            return Task.CompletedTask;
-                        }
-                    }
                     if (ctx.Request.Cookies.TryGetValue("garagestack-auth", out var cookie))
                         ctx.Token = cookie;
                     return Task.CompletedTask;
@@ -259,26 +221,16 @@ try
     app.UseAuthentication();
     app.UseAuthorization();
 
-    if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Demo"))
+    if (app.Environment.IsDevelopment())
     {
         app.MapOpenApi();
-        app.MapScalarApiReference(opts => opts
-            .WithTitle("GarageStack API")
-            .WithTheme(ScalarTheme.DeepSpace)
-            .EnableDarkMode()
-            .WithDynamicBaseServerUrl(true)
-            .SortTagsAlphabetically()
-            .SortOperationsByMethod()
-            .AddPreferredSecuritySchemes(["Bearer"])
-            .AddHttpAuthentication("Bearer", _ => { }));
+        app.MapScalarApiReference(opts => opts.WithTitle("GarageStack API"));
     }
 
-    app.MapHub<TelemetryHub>("/hubs/telemetry").RequireAuthorization();
     app.MapAuthEndpoints();
     app.MapVehicleEndpoints();
     app.MapNotificationEndpoints();
     app.MapWidgetEndpoints();
-    app.MapMapEndpoints();
 
     if (isDemoMode)
     {
